@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const Item = require('./models/Item');
+const User = require('./models/User');
 
 const app = express();
 app.use(express.json());
@@ -20,6 +21,17 @@ app.post('/items', async (req, res) => {
     const guardado = await nuevoItem.save();
     res.status(201).json(guardado);
   } catch (err) {
+    res.status(500).json({ error: 'Error al guardar en la base de datos' });
+  }
+});
+
+app.post('/users', async (req, res) => {
+  try {
+    const nuevoUsuario = new User(req.body);
+    const guardado = await nuevoUsuario.save();
+    res.status(201).json(guardado);
+  } catch (err) {
+    console.error('Error al guardar el usuario:', err);
     res.status(500).json({ error: 'Error al guardar en la base de datos' });
   }
 });
