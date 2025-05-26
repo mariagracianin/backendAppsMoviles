@@ -1,9 +1,6 @@
 # Node modules (dependencias instaladas con npm)
 node_modules/
 
-# Archivos de entorno con credenciales
-.env
-
 # Logs
 logs
 *.log
