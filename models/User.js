@@ -72,3 +72,6 @@ const userSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('User', userSchema);
+
+
+//FALTA DEFINIR COMO ASOCIAL HABITO A GRUPO

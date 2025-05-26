@@ -35,3 +35,6 @@ const groupSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('Group', groupSchema);
+
+
+//FALTA DEFINIR COMO ASOCIAL HABITO A GRUPO
