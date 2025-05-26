@@ -1,0 +1,34 @@
+# Node modules (dependencias instaladas con npm)
+node_modules/
+
+# Archivos de entorno con credenciales
+.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Sistema operativo
+.DS_Store       # macOS
+Thumbs.db       # Windows
+
+# Archivos temporales de VSCode y otros editores
+.vscode/
+.idea/
+*.swp
+
+# Salida de producción (opcional, si usás dist o build)
+dist/
+build/
+
+# PM2 logs (si usás PM2 para producción)
+pids
+*.pid
+*.seed
+
+# Archivos de test coverage
+coverage/
+
+# Archivos de subida temporales
+uploads/
