@@ -1,54 +1,38 @@
 const mongoose = require('mongoose');
 
 const habitSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  user_mail: {
+  name: {
     type: String,
     required: true
   },
-  name: String,
   score: {
     type: Number,
     default: 0
   },
-  icon: String,
-  color: String,
-  frecuencia: String
-}, { _id: false }); // evita crear un _id interno para cada habit
-
-const postSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    required: true,
-    unique: true
+  icon: {
+    type: String
   },
-  user_mail: {
-    type: String,
-    required: true
+  color: {
+    type: String
   },
-  photo: String,
-  validated: {
-    type: Boolean,
-    default: false
+  frequency: {
+    type: Number // del 1 al 7
   },
-  date: {
-    type: Date,
-    default: Date.now
+  post_photo: {
+    type: String
   },
-  aproveal_qty: {
-    type: Number,
-    default: 0
+  post_date: {
+    type: Date
   },
-  rejected_qty: {
-    type: Number,
-    default: 0
-  },
-  habit_id: String
-}, { _id: false }); // evita crear un _id interno para cada post
+  id_grupos: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group'
+  }],
+  weekly_counter: {
+    type: [Number],
+    default: [0, 0, 0, 0, 0, 0, 0], // Lunes a Domingo
+  }
+});
 
 const userSchema = new mongoose.Schema({
   mail: {
@@ -60,18 +44,19 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  name: String,
-  photo: String,
-  habits: [habitSchema],
-  posts: [postSchema],
-  groups_ids: {
-        type: [String], // lista de ids de grupos
-    }
-}, {
-  timestamps: true
+  username: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  photo: {
+    type: String
+  },
+  habits: [habitSchema], // lista de hábitos embebidos
+  id_grupos: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group'
+  }]
 });
 
 module.exports = mongoose.model('User', userSchema);
-
-
-//FALTA DEFINIR COMO ASOCIAL HABITO A GRUPO

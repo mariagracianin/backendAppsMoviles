@@ -1,40 +1,26 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const Item = require('./models/Item');
-const User = require('./models/User');
+const userRoutes = require('./routes/userRoutes');
+const groupRoutes = require('./routes/groupRoutes');
 
 const app = express();
 app.use(express.json());
 
+// Conexión a MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('Conectado a MongoDB Atlas'))
   .catch(err => console.error('Error al conectar MongoDB', err));
 
+// Ruta base
 app.get('/', (req, res) => {
   res.send('¡Hola desde Express!');
 });
 
-app.post('/items', async (req, res) => {
-  try {
-    const nuevoItem = new Item({ nombre: req.body.nombre });
-    const guardado = await nuevoItem.save();
-    res.status(201).json(guardado);
-  } catch (err) {
-    res.status(500).json({ error: 'Error al guardar en la base de datos' });
-  }
-});
+// Rutas
+app.use('/user', userRoutes);
+app.use('/group', groupRoutes);
 
-app.post('/users', async (req, res) => {
-  try {
-    const nuevoUsuario = new User(req.body);
-    const guardado = await nuevoUsuario.save();
-    res.status(201).json(guardado);
-  } catch (err) {
-    console.error('Error al guardar el usuario:', err);
-    res.status(500).json({ error: 'Error al guardar en la base de datos' });
-  }
-});
-
+// Servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
