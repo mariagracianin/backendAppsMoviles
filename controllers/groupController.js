@@ -1,6 +1,9 @@
 const User = require('../models/User');
 const Group = require('../models/Group');
 
+// getUsersFromGroup
+// getHabitsFromGroup -> Trae todos los habitos de un grupo de la manera usuario + [habitos] (entero/obj) (usa la funcion getUsersFromGroup + getHabitsInGroupFromUser)
+
 const createGroup = async (req, res) => {
   try {
     const newGroup = new Group(req.body);

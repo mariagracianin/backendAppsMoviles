@@ -1,6 +1,14 @@
 const User = require('../models/User');
 const Group = require('../models/Group');
 
+
+// getGroupsUser
+// getInvitesUser
+// getHabitsInGroupFromUser     -> trae los habitos que tiene en un grupo X una persona Y
+// getUsersWithGroupsInCommon   -> trae todos los usauarios que tienen un grupo o mas en comun con persona Y
+//
+
+
 const createUser = async (req, res) => {
   try {
     const newUser = new User(req.body);

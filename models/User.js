@@ -56,6 +56,10 @@ const userSchema = new mongoose.Schema({
   id_grupos: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
+  }],
+  id_pending_grupos: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group'
   }]
 });
 
