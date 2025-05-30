@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const Group = require('../models/Group');
+const mongoose = require('mongoose');
+
 
 // getUsersFromGroup
 // getHabitsFromGroup -> Trae todos los habitos de un grupo de la manera usuario + [habitos] (entero/obj) (usa la funcion getUsersFromGroup + getHabitsInGroupFromUser)

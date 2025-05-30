@@ -24,7 +24,7 @@ const habitSchema = new mongoose.Schema({
   post_date: {
     type: Date
   },
-  id_grupos: [{
+  id_groups: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
   }],
@@ -53,11 +53,11 @@ const userSchema = new mongoose.Schema({
     type: String
   },
   habits: [habitSchema], // lista de hábitos embebidos
-  id_grupos: [{
+  id_groups: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
   }],
-  id_pending_grupos: [{
+  id_pending_groups: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
   }]
