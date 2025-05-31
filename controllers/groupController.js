@@ -1,10 +1,7 @@
 const User = require('../models/User');
 const Group = require('../models/Group');
 const mongoose = require('mongoose');
-
-
-// getUsersFromGroup
-// getHabitsFromGroup -> Trae todos los habitos de un grupo de la manera usuario + [habitos] (entero/obj) (usa la funcion getUsersFromGroup + getHabitsInGroupFromUser)
+const { getHabitsInGroupFromUserInternal } = require('./userController.js'); 
 
 const createGroup = async (req, res) => {
   try {
@@ -17,6 +14,72 @@ const createGroup = async (req, res) => {
   }
 };
 
+const isValidGroupId = async (id) => {
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    console.log('ID no válido como ObjectId');
+    return false;
+  }
+
+  const exists = await Group.exists({ _id: id });
+  return !!exists;
+};
+
+
+const getUsersFromGroup = async (req, res) => {
+  const { groupId } = req.params;
+  try {
+    const isValid = await isValidGroupId(groupId);
+    if (!isValid) throw new Error('El id del grupo no es válido o no existe');
+
+    const users = await User.find({ id_groups: groupId }).select('username photo habits'); //solo trae estos datos
+    res.json(users);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+//funcion interna reutilizable
+const getUsersFromGroupInternal = async (groupId) => {
+  const isValid = await isValidGroupId(groupId);
+  if (!isValid) throw new Error('El id del grupo no es válido o no existe');
+
+  return await User.find({ id_groups: groupId }).select('username photo habits'); //solo trae estos datos
+};
+
+
+//Trae todos los habitos de un grupo de la manera usuario + [habitos] (entero/obj) 
+//(usa la funcion getUsersFromGroup + getHabitsInGroupFromUser)
+const getHabitsFromGroup = async (req, res) => {
+  const { groupId } = req.params;
+
+  try {
+    const users = await getUsersFromGroupInternal(groupId);
+
+    const result = await Promise.all(users.map(async (user) => {
+      const habits = await getHabitsInGroupFromUserInternal(user._id, groupId);
+
+      //ver bien que es lo que tenemos que devolver (pantalla de semanario)
+      return {
+        username: user.username,
+        photo: user.photo,
+        habits: habits.map(h => ({
+          name: h.name,
+          icon: h.icon,
+          post_date: h.post_date,
+          post_photo: h.post_photo
+        }))
+      };
+    }));
+
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+
 module.exports = {
-  createGroup
+  createGroup,
+  getUsersFromGroup,
+  getHabitsFromGroup
 };

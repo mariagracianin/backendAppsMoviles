@@ -2,10 +2,9 @@ const User = require('../models/User');
 const Group = require('../models/Group');
 const mongoose = require('mongoose');
 
-// loginUser
+// falta loginUser
 
-// getHabitsInGroupFromUser     -> trae los habitos que tiene en un grupo X una persona Y
-// getUsersWithGroupsInCommon   -> trae todos los usauarios que tienen un grupo o mas en comun con persona Y
+// con lo de valid user se puede usar para el resto de las funciones tambien que le pasas un get pero no entinedo si es necesario o no, en alguna funcion abajo hice un comentario de esto
 
 //crear un nuevo usuario
 const createUser = async (req, res) => {
@@ -24,14 +23,35 @@ const createUser = async (req, res) => {
   }
 };
 
+// función que verifica si un usuario existe y el id es válido
+//lo tuve que poner aca tambien para no tener dependencias circulares
+const isValidUserId = async (id) => {
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) return false;
+
+  const exists = await User.exists({ _id: id });
+  return !!exists;
+};
+
+const isValidGroupId = async (id) => {
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    console.log('ID no válido como ObjectId');
+    return false;
+  }
+
+  const exists = await Group.exists({ _id: id });
+  return !!exists;
+};
+
 //funcion interna que devuelve el objeto usuario a partir de su ID
 const fetchUserById = async (id) => {
   if (!id) throw new Error('Falta el id del usuario');
-  if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('El id no es válido');
 
+  // Reutilizo isValidUserId para validar formato y existencia
+  const exists = await isValidUserId(id);
+  if (!exists) throw new Error('Usuario no encontrado o id no válido');
+
+  // Como el usuario existe, lo busco completo
   const user = await User.findById(id);
-  if (!user) throw new Error('Usuario no encontrado');
-
   return user;
 };
 
@@ -228,7 +248,7 @@ const loadHabitUser = async (req, res) => {
 };
 
 //funcion para agregar un grupo a un habito. 
-//FALTA HACER UN CHEQUEO DE QUE EL GRUPO EXISTA
+//ademas tendria que fijarse si la persona esta en ese grupo no??!! NO ESTA HECHO pero no se si es necesario
 const addGroupToHabit = async (req, res) => {
   try {
     const { userId, habitName, newGroupId } = req.body;
@@ -237,7 +257,17 @@ const addGroupToHabit = async (req, res) => {
       return res.status(400).json({ error: 'Faltan datos requeridos: userId, habitName o newGroupId' });
     }
 
-    const updatedHabit = await editHabitUser(userId, habitName, { newGroupId });
+    if (!mongoose.Types.ObjectId.isValid(newGroupId)) {
+      return res.status(400).json({ error: 'El ID del grupo no es un ObjectId válido' });
+    }
+    //ver si el grupo existe
+    const groupExists = await isValidGroupId(newGroupId);
+    if (!groupExists) {
+      return res.status(404).json({ error: 'El grupo especificado no existe en la base de datos' });
+    }
+
+    // editHabitUser espera un array en id_groups
+    const updatedHabit = await editHabitUser(userId, habitName, { id_groups: [newGroupId] });
 
     res.status(200).json({ message: 'Grupo agregado correctamente al hábito', habit: updatedHabit });
   } catch (error) {
@@ -245,6 +275,154 @@ const addGroupToHabit = async (req, res) => {
     res.status(400).json({ error: error.message || 'Error en la base de datos' });
   }
 };
+
+// trae los habitos que tiene en un grupo X una persona Y
+// http://localhost:3000/user/683a43189ad5fb59ad9b182e/683796960242fdee4c5c4e4e/getHabitsInGroupsFromUser
+const getHabitsInGroupFromUser = async (req, res) => {
+  try {
+    const { userId, groupId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'El userId no es válido' });
+    }
+
+    const groupExists = await isValidGroupId(groupId);
+    if (!groupExists) {
+      return res.status(404).json({ error: 'El grupo especificado no existe' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const filteredHabits = user.habits.filter(habit =>
+      habit.id_groups.some(id => id.toString() === groupId)
+    );
+
+    res.status(200).json({ habits: filteredHabits });
+  } catch (error) {
+    console.error('Error al obtener hábitos del usuario en el grupo:', error);
+    res.status(500).json({ error: 'Error en la base de datos' });
+  }
+};
+
+// trae todos los usuarios que tienen al menos un grupo en común con el usuario dado por id,
+// junto con los grupos que tienen en común
+// http://localhost:3000/user/683a43189ad5fb59ad9b182e/getUsersWithGroupsInCommon
+const getUsersWithGroupsInCommon = async (req, res) => {
+  const { id: userId } = req.params;
+
+  try {
+    if (!userId) throw new Error('Falta el id del usuario');
+    if (!mongoose.Types.ObjectId.isValid(userId)) throw new Error('El id no es válido');
+
+    const user = await User.findById(userId); //--> no se si tienen sentido las funciones q hice arriba del tdodo
+    if (!user) throw new Error('Usuario no encontrado');
+
+    const userGroupIds = user.id_groups.map(g => g.toString());
+
+    if (userGroupIds.length === 0) {
+      return res.json([]); // sin grupos, no comparte con nadie
+    }
+
+    const otherUsers = await User.find({
+      _id: { $ne: userId },
+      id_groups: { $in: userGroupIds }
+    });
+
+    const result = otherUsers.map(otherUser => {
+      const otherGroupIds = otherUser.id_groups.map(g => g.toString());
+      const commonGroups = otherGroupIds.filter(g => userGroupIds.includes(g));
+
+      return {
+        user: otherUser,
+        commonGroups
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+//para traer los datos del feed, tengo que rearmar las funciones para que sean internas
+// Versión pura sin req/res para getUsersWithGroupsInCommon
+const getUsersWithGroupsInCommonInternal = async (userId) => {
+  if (!userId) throw new Error('Falta el id del usuario');
+  if (!mongoose.Types.ObjectId.isValid(userId)) throw new Error('El id no es válido');
+
+  const user = await User.findById(userId);
+  if (!user) throw new Error('Usuario no encontrado');
+
+  const userGroupIds = user.id_groups.map(g => g.toString());
+  if (userGroupIds.length === 0) return [];
+
+  const otherUsers = await User.find({
+    _id: { $ne: userId },
+    id_groups: { $in: userGroupIds }
+  });
+
+  return otherUsers.map(otherUser => {
+    const otherGroupIds = otherUser.id_groups.map(g => g.toString());
+    const commonGroups = otherGroupIds.filter(g => userGroupIds.includes(g));
+    return { user: otherUser, commonGroups };
+  });
+};
+
+// Versión pura sin req/res para getHabitsInGroupFromUser
+const getHabitsInGroupFromUserInternal = async (userId, groupId) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) throw new Error('UserId no válido');
+  const groupExists = await isValidGroupId(groupId);
+  if (!groupExists) throw new Error('Grupo no existe');
+
+  const user = await User.findById(userId);
+  if (!user) throw new Error('Usuario no encontrado');
+
+  return user.habits.filter(habit =>
+    habit.id_groups.some(id => id.toString() === groupId)
+  );
+};
+
+const getFeedPosts = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Obtenemos usuarios con grupos en común
+    const usersWithGroups = await getUsersWithGroupsInCommonInternal(userId);
+
+    const result = [];
+
+    for (const { user: otherUser, commonGroups } of usersWithGroups) {
+      let userHabits = [];
+
+      for (const groupId of commonGroups) {
+        const habits = await getHabitsInGroupFromUserInternal(otherUser._id.toString(), groupId);
+        userHabits = userHabits.concat(habits);
+      }
+
+      // Eliminar hábitos duplicados
+      const uniqueHabits = Array.from(new Map(userHabits.map(h => [h._id.toString(), h])).values());
+
+      result.push({
+        username: otherUser.username,
+        userHabits: uniqueHabits.map(habit => ({
+          name: habit.name,
+          icon: habit.icon,
+          post_date: habit.post_date,
+          post_photo: habit.post_photo
+        }))
+      });
+      
+    }
+
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 
 module.exports = {
   createUser,
@@ -254,5 +432,9 @@ module.exports = {
   loadHabitUser,
   addGroupToHabit,
   getUserGroups,
-  getUserPendingGroups
+  getUserPendingGroups,
+  getHabitsInGroupFromUser,
+  getUsersWithGroupsInCommon,
+  getFeedPosts,
+  getHabitsInGroupFromUserInternal
 };
