@@ -55,6 +55,17 @@ const fetchUserById = async (id) => {
   return user;
 };
 
+//funcion interna que devuelve el objeto usuario a partir de su USERNAME
+const fetchUserByUsername = async (username) => {
+  if (!username) throw new Error('Falta el username');
+
+  const user = await User.findOne({ username });
+
+  if (!user) throw new Error('Usuario no encontrado');
+
+  return user;
+};
+
 //devuelve todos los datos del usuario. Hay que pasarle el id de mongo en este formato http://localhost:3000/user/6839fc99705dbc0534b703f2
 const getUser = async (req, res) => {
   try {
@@ -423,6 +434,30 @@ const getFeedPosts = async (req, res) => {
   }
 };
 
+//Da las mascotas de un usuario y el nombre del grupo(mascotas de cada grupo al que pertenece)
+const getUserPets = async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    // Buscar usuario por username y poblar grupos
+    const user = await User.findOne({ username }).populate('id_groups');
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Extraer nombre del grupo + datos de mascota
+    const pets = user.id_groups.map(group => ({
+      group_name: group.name,
+      pet_name: group.pet_name,
+      pet_status: group.pet_status
+    }));
+
+    res.json({ pets });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 
 module.exports = {
   createUser,
@@ -436,5 +471,6 @@ module.exports = {
   getHabitsInGroupFromUser,
   getUsersWithGroupsInCommon,
   getFeedPosts,
-  getHabitsInGroupFromUserInternal
+  getHabitsInGroupFromUserInternal,
+  getUserPets
 };
