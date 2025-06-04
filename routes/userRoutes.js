@@ -22,7 +22,7 @@ router.post('/loadHabit', loadHabitUser);
 router.post('/addGroupToHabit', addGroupToHabit);
 router.get('/:id/groups', getUserGroups);
 router.get('/:id/pendingGroups', getUserPendingGroups);
-router.get('/:username/pets', getUserPets);   //HABLARLO CON ROSU
+router.get('/:id/pets', getUserPets);   //HABLARLO CON ROSU
 router.get('/:userId/:groupId/getHabitsInGroupsFromUser', getHabitsInGroupFromUser);
 router.get('/:id/getUsersWithGroupsInCommon', getUsersWithGroupsInCommon);
 router.get('/:id/getFeedPosts', getFeedPosts);

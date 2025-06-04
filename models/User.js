@@ -1,5 +1,24 @@
 const mongoose = require('mongoose');
 
+const postSchema = new mongoose.Schema({
+  date: {
+    type: Date,
+    required: true
+  },
+  photo: {
+    type: String,
+    required: true
+  },
+  likes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  dislikes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }]
+});
+
 const habitSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -18,12 +37,10 @@ const habitSchema = new mongoose.Schema({
   frequency: {
     type: Number // del 1 al 7
   },
-  post_photo: {
-    type: String
-  },
-  post_date: {
+  posts: [postSchema], // lista de post embebidos
+  post_dates: [{
     type: Date
-  },
+  }],
   id_groups: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
@@ -48,6 +65,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true
+  },
+  coins: {
+    type: Number,
+    default: 0
   },
   photo: {
     type: String

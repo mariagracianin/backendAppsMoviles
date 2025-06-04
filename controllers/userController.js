@@ -437,10 +437,10 @@ const getFeedPosts = async (req, res) => {
 //Da las mascotas de un usuario y el nombre del grupo(mascotas de cada grupo al que pertenece)
 const getUserPets = async (req, res) => {
   try {
-    const { username } = req.params;
+    const { id } = req.params;
 
-    // Buscar usuario por username y poblar grupos
-    const user = await User.findOne({ username }).populate('id_groups');
+    // Buscar usuario por id y poblar grupos
+    const user = await User.findOne({ id }).populate('id_groups');
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
