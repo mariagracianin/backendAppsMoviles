@@ -332,6 +332,30 @@ const getHabitsInGroupFromUser = async (req, res) => {
   }
 };
 
+// funcion que devuelve los habitos de un usuario
+const getUserHabits = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate('habits')
+      .lean(); // Retorna un objeto plano de JS
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Remover los campos 'posts' y 'post_dates' de cada hábito
+    const cleanedHabits = user.habits.map(habit => {
+      const { posts, post_dates, ...rest } = habit;
+      return rest;
+    });
+
+    res.status(200).json({ habits: cleanedHabits });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+
 // trae todos los usuarios que tienen al menos un grupo en común con el usuario dado por id,
 // junto con los grupos que tienen en común
 // http://localhost:3000/user/683a43189ad5fb59ad9b182e/getUsersWithGroupsInCommon
@@ -539,7 +563,7 @@ const getUserPets = async (req, res) => {
     const { id } = req.params;
 
     // Buscar usuario por id y poblar grupos
-    const user = await User.findOne({ id }).populate('id_groups');
+    const user = await User.findById(id).populate('id_groups');
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
@@ -622,25 +646,39 @@ const addPendingGroup = async (req, res) => {
   try {
     const { friendUserId, groupId } = req.body;
 
-    if (!friendUserId || !groupId ) {
-      return res.status(400).json({ error: 'Faltan datos requeridos'});
+    if (!friendUserId || !groupId) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
     }
-    
+
     // Buscar usuario por id
     const userFriend = await User.findById(friendUserId);
     if (!userFriend) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
+    // Verificar si el grupo ya está en id_groups o id_pending_groups
+    const alreadyMember = userFriend.id_groups.includes(groupId);
+    const alreadyPending = userFriend.id_pending_groups.includes(groupId);
+
+    if (alreadyMember) {
+      return res.status(400).json({ error: 'El usuario ya pertenece al grupo' });
+    }
+
+    if (alreadyPending) {
+      return res.status(400).json({ error: 'Ya hay una invitación pendiente para este grupo' });
+    }
+
+    // Agregar el grupo a pending si no estaba
     userFriend.id_pending_groups.push(groupId);
     await userFriend.save();
-  
-    res.status(200).json({ message: 'Amigo agregado correctamente grupo'});
+
+    res.status(200).json({ message: 'Grupo agregado a invitaciones pendientes correctamente' });
   } catch (error) {
     console.error('Error al agregar amigo al grupo:', error);
     res.status(400).json({ error: error.message || 'Error en la base de datos' });
   }
 };
+
 
 // Funcion con la logica de aceptar invitacion a grupo
 // accepted es un bool
@@ -684,6 +722,7 @@ module.exports = {
   createHabitUser,
   loadHabitUser,
   addGroupToHabit,
+  getUserHabits,
   getUserGroups,
   getUserPendingGroups,
   getHabitsInGroupFromUser,

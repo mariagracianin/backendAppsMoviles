@@ -5,14 +5,28 @@ const { getHabitsInGroupFromUserInternal } = require('./userController.js');
 
 const createGroup = async (req, res) => {
   try {
-    const newGroup = new Group(req.body);
-    const saved = await newGroup.save();
-    res.status(201).json(saved);
+    const { userId, ...groupData } = req.body;
+
+    // 1. Crear el grupo
+    const newGroup = new Group(groupData);
+    const savedGroup = await newGroup.save();
+
+    // 2. Agregar el grupo al usuario
+    const User = require('../models/User'); // Asegurate de tener esta importación al comienzo si no está
+    await User.findByIdAndUpdate(
+      userId,
+      { $push: { id_groups: savedGroup._id } },
+      { new: true }
+    );
+
+    res.status(201).json(savedGroup);
   } catch (err) {
-    console.error('Error al guardar el grupo:', err);
-    res.status(500).json({ error: 'Error al guardar en la base de datos' });
+    console.error('Error al crear el grupo:', err);
+    res.status(500).json({ error: 'Error al crear el grupo' });
   }
 };
+
+
 
 const editGroup = async (req, res) => {
   try {

@@ -16,6 +16,7 @@ const { addLikes } = require('../controllers/userController');
 const { deletePost } = require('../controllers/userController');
 const { addPendingGroup } = require('../controllers/userController');
 const { acceptPendingGroup } = require('../controllers/userController');
+const { getUserHabits } = require('../controllers/userController');
 
 
 router.post('/create', createUser);
@@ -28,6 +29,7 @@ router.post('/addPendingGroup', addPendingGroup);
 router.post('/acceptPendingGroup', acceptPendingGroup);
 
 router.get('/:id', getUser);
+router.get('/:id/habits', getUserHabits);
 router.get('/:id/groups', getUserGroups);
 router.get('/:id/pendingGroups', getUserPendingGroups);
 router.get('/:id/pets', getUserPets);
