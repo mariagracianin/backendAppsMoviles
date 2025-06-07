@@ -646,7 +646,6 @@ const addPendingGroup = async (req, res) => {
 // accepted es un bool
 const acceptPendingGroup = async (req, res) => {
   try {
-    console.log("si llega!")
     const { userId, groupId, accepted } = req.body; 
 
     if (!userId || !groupId || accepted ==  null) {
