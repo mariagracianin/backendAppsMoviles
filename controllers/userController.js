@@ -43,6 +43,7 @@ const isValidGroupId = async (id) => {
 };
 
 //funcion interna que devuelve el objeto usuario a partir de su ID
+//-----------------> MIRAR SI NO ES LO MISMO QUE findid (EL QUE VIENE CON MONGO)
 const fetchUserById = async (id) => {
   if (!id) throw new Error('Falta el id del usuario');
 
@@ -71,12 +72,17 @@ const getUser = async (req, res) => {
   try {
     const id = req.params.id;
     const user = await fetchUserById(id);
-    res.json(user);
+
+    const userObj = user.toObject(); // convierte el documento Mongoose a objeto plano
+    delete userObj.password; // elimina el campo
+
+    res.json(userObj);
   } catch (error) {
     console.error('Error al obtener usuario:', error);
     res.status(400).json({ error: error.message });
   }
 };
+
 
 //funcion que devuelve los grupos de un usuario
 const getUserGroups = async (req, res) => {
@@ -91,12 +97,18 @@ const getUserGroups = async (req, res) => {
 //funcion que devuelve las invitaciones de un usuario
 const getUserPendingGroups = async (req, res) => {
   try {
-    const user = await fetchUserById(req.params.id);
+    const user = await User.findById(req.params.id).populate('id_pending_groups');
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
     res.json({ id_pending_groups: user.id_pending_groups });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 //editar usuario existente. Hay que pasarle el _id de mongo y los campos que se quieran editar. 
 //sirve para poder agregar valores a los atributos del usuario. Por ejemplo agregar grupos.
@@ -206,7 +218,6 @@ const editHabitUser = async (userId, habitName, updates) => {
 
 
 //funcion para marcar que se completo un habito con una foto
-//Todo: falta agregar el funcionamiento del score
 const loadHabitUser = async (req, res) => {
   try {
     const { userId, habitName, post_photo } = req.body;
@@ -215,47 +226,50 @@ const loadHabitUser = async (req, res) => {
       return res.status(400).json({ error: 'Faltan datos requeridos: userId, habitName o post_photo' });
     }
 
-    // Fecha actual y cálculo del índice del día (Lunes=0 ... Domingo=6)
+
     const now = new Date();
     const dayIndex = (now.getDay() + 6) % 7;
 
-    // Preparamos las actualizaciones
-    const updates = {
-      post_photo,
-      post_date: now,
-      // Para weekly_counter, necesitamos actualizar el índice correcto en el array actual
-      // Así que debemos obtener el hábito actual primero, para copiar y modificar weekly_counter
-    };
-
-    // Primero obtenemos el usuario para obtener el hábito y actualizar weekly_counter
     const user = await User.findById(userId);
+
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
+
     const habit = user.habits.find(h => h.name === habitName);
     if (!habit) {
-      return res.status(404).json({ error: `Hábito "${habitName}" no encontrado en el usuario.` });
+      return res.status(404).json({ error: 'Hábito no encontrado en el usuario.'});
     }
 
-    // Copiar weekly_counter y actualizar el día correspondiente
-    const newWeeklyCounter = [...habit.weekly_counter];
-    newWeeklyCounter[dayIndex] = 1;
+    // Crear nuevo post
+    const newPost = {
+      date: now,
+      photo: post_photo,
+      likes: [],
+      dislikes: []
+    };
 
-    updates.weekly_counter = newWeeklyCounter;
+    // Agregar post y fecha
+    habit.posts.push(newPost);
+    habit.post_dates.push(now);
 
-    // Usamos editHabitUser para actualizar
-    const updatedHabit = await editHabitUser(userId, habitName, updates);
+    // Actualizar weekly_counter
+    habit.weekly_counter[dayIndex] = 1;
 
-    res.status(200).json({ message: 'Hábito actualizado correctamente', habit: updatedHabit });
+    //Actualizar cantidad de monedas
+    user.coins = user.coins + 1;
 
+    // Guardar cambios en el documento del usuario
+    await user.save();
+
+    res.status(200).json({ message: 'Hábito actualizado correctamente', habit });
   } catch (error) {
     console.error('Error al cargar hábito del usuario:', error);
-    // Aquí el error puede venir de editHabitUser o validaciones
     if (error.message) {
       return res.status(400).json({ error: error.message });
     }
-    res.status(500).json({ error: 'Error en la base de datos' });
-  }
+    res.status(500).json({ error: 'Error en la base de datos' });
+  }
 };
 
 //funcion para agregar un grupo a un habito. 
@@ -396,6 +410,17 @@ const getHabitsInGroupFromUserInternal = async (userId, groupId) => {
   );
 };
 
+//Funcion interna que devuelve todos los habitos de un usuario al pasarle su userID
+//---- FALTA HACER LA EXTERNA
+const getUserHabitsInternal = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) throw new Error('Usuario no encontrado');
+  return user.habits;
+};
+
+
+// aca no esta ordenado por fecha, estaria bueno que se ordenara segun fecha!
+// userlike y userdislike te dicen si el usuario likeo ese post en especifico o no idem dilike
 const getFeedPosts = async (req, res) => {
   try {
     const userId = req.params.id;
@@ -419,20 +444,94 @@ const getFeedPosts = async (req, res) => {
       result.push({
         username: otherUser.username,
         userHabits: uniqueHabits.map(habit => ({
-          name: habit.name,
-          icon: habit.icon,
-          post_date: habit.post_date,
-          post_photo: habit.post_photo
+        name: habit.name,
+        icon: habit.icon,
+        posts: habit.posts.map(post => ({
+          date: post.date,
+          photo: post.photo,
+          likes: post.likes,
+          dislikes: post.dislikes, 
+          userLike: post.likes.some(likeId => likeId.toString() === userId.toString()),
+          userDislike: post.dislikes.some(dislikeId => dislikeId.toString() === userId.toString())
+          }))
         }))
       });
-      
     }
+
+    const user = await User.findById(userId);
+    const habits = await getUserHabitsInternal(userId);
+
+    result.push({
+      username: user.username,
+      userHabits: habits.map(habit => ({
+        name: habit.name,
+        icon: habit.icon,
+        posts: habit.posts.map(post => ({
+          date: post.date,
+          photo: post.photo,
+          likes: post.likes,       // lista de ObjectId (puede popularse si querés)
+          dislikes: post.dislikes,
+          userLike: post.likes.some(likeId => likeId.toString() === userId.toString()),
+          userDislike: post.dislikes.some(dislikeId => dislikeId.toString() === userId.toString())
+      }))
+    }))
+  });
 
     res.json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
+// Funcion que borra un post
+const deletePost = async (req, res) => {
+  try {
+    const { userId, habitName, postDate } = req.body;
+
+    if (!userId || !habitName || !postDate) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
+
+    const exists = await isValidUserId(userId);
+    if (!exists) throw new Error('Usuario no encontrado o id no válido');
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const habit = user.habits.find(h => h.name === habitName);
+    if (!habit) return res.status(404).json({ error: 'Hábito no encontrado en el usuario' });
+
+    const parsedDate = new Date(postDate);
+
+    // Buscar índice del post
+    const postIndex = habit.posts.findIndex(p => new Date(p.date).getTime() === parsedDate.getTime());
+    if (postIndex === -1) return res.status(404).json({ error: 'Post no encontrado con esa fecha' });
+
+    // Borrar el post y su fecha
+    habit.posts.splice(postIndex, 1);
+    habit.post_dates = habit.post_dates.filter(d => new Date(d).getTime() !== parsedDate.getTime());
+
+    // Restar 1 moneda si tiene al menos 1
+    if (user.coins > 0) {
+      user.coins -= 1;
+    }
+
+    // Weekcounter
+    const dayIndex = (parsedDate.getDay() + 6) % 7;
+
+    // Actualizar weekly_counter
+    habit.weekly_counter[dayIndex] = 0;
+
+    // Guardar cambios
+    await user.save();
+
+    res.status(200).json({ message: 'Post borrado correctamente y moneda descontada' });
+  } catch (error) {
+    console.error('Error al borrar post:', error);
+    res.status(400).json({ error: error.message || 'Error en la base de datos' });
+  }
+};
+
 
 //Da las mascotas de un usuario y el nombre del grupo(mascotas de cada grupo al que pertenece)
 const getUserPets = async (req, res) => {
@@ -458,6 +557,126 @@ const getUserPets = async (req, res) => {
   }
 };
 
+// Funcion con la logica de poner/sacar likes y dislikes
+const addLikes = async (req, res) => {
+  try {
+    const { userId, postOwnerUserId, habitName, postDate, like, dislike } = req.body;
+
+    if (!userId || !postOwnerUserId || !habitName || !postDate || like == null || dislike == null) {
+      return res.status(400).json({ error: 'Faltan datos requeridos'});
+    }
+    
+    const exists = await isValidUserId(userId);
+    if (!exists) throw new Error('Usuario no encontrado o id no válido');
+
+    // Buscar al usuario dueño del post
+    const owner = await User.findById(postOwnerUserId);
+    if (!owner) return res.status(404).json({ error: 'Usuario dueño del post no encontrado' });
+
+    // Buscar el hábito
+    const habit = owner.habits.find(h => h.name === habitName);
+    if (!habit) return res.status(404).json({ error: 'Hábito no encontrado en el usuario' });
+
+    // Buscar el post por fecha exacta
+    const parsedDate = new Date(postDate);
+    const post = habit.posts.find(p => new Date(p.date).getTime() === parsedDate.getTime());
+
+    if (!post) return res.status(404).json({ error: 'Post no encontrado con esa fecha' });
+
+
+    const userIdStr = userId.toString(); // para comparación segura
+    const alreadyLiked = post.likes.some(id => id.toString() === userIdStr);
+    const alreadyDisliked = post.dislikes.some(id => id.toString() === userIdStr);
+
+    if (like) {
+      if (!alreadyLiked) {
+        post.likes.push(userId);
+      }
+    } else {
+      if (alreadyLiked) {
+        post.likes = post.likes.filter(id => id.toString() !== userIdStr);
+      }
+    }
+
+    if (dislike) {
+      if (!alreadyDisliked) {
+        post.dislikes.push(userId);
+      }
+    } else {
+      if (alreadyDisliked) {
+        post.dislikes = post.dislikes.filter(id => id.toString() !== userIdStr);
+      }
+    }
+    await owner.save();
+    res.status(200).json({ message: 'Likes actaulizados correctamente'});
+  } catch (error) {
+    console.error('Error al actualizar likes:', error);
+    res.status(400).json({ error: error.message || 'Error en la base de datos' });
+  }
+};
+
+
+// Funcion con la logica de agregar usuarios a un grupo (mandar invitacion)
+// usuario que manda inivtacion tinee que pertenecer al grupo? refinarlo ?
+const addPendingGroup = async (req, res) => {
+  try {
+    const { friendUserId, groupId } = req.body;
+
+    if (!friendUserId || !groupId ) {
+      return res.status(400).json({ error: 'Faltan datos requeridos'});
+    }
+    
+    // Buscar usuario por id
+    const userFriend = await User.findById(friendUserId);
+    if (!userFriend) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    userFriend.id_pending_groups.push(groupId);
+    await userFriend.save();
+  
+    res.status(200).json({ message: 'Amigo agregado correctamente grupo'});
+  } catch (error) {
+    console.error('Error al agregar amigo al grupo:', error);
+    res.status(400).json({ error: error.message || 'Error en la base de datos' });
+  }
+};
+
+// Funcion con la logica de aceptar invitacion a grupo
+// accepted es un bool
+const acceptPendingGroup = async (req, res) => {
+  try {
+    console.log("si llega!")
+    const { userId, groupId, accepted } = req.body; 
+
+    if (!userId || !groupId || accepted ==  null) {
+      return res.status(400).json({ error: 'Faltan datos requeridos'});
+    }
+    
+    // Buscar usuario por id
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    user.id_pending_groups = user.id_pending_groups.filter(
+      gId => gId.toString() !== groupId
+    );
+
+    if (accepted) {
+      // Evitar duplicados
+      if (!user.id_groups.some(gId => gId.toString() === groupId)) {
+        user.id_groups.push(groupId);
+      }
+    }
+    await user.save();
+    res.status(200).json({ message: 'Invitacion aceptada/ rechazada correctamenre'});
+  } catch (error) {
+    console.error('Error aceptar/rechazar invitacion:', error);
+    res.status(400).json({ error: error.message || 'Error en la base de datos' });
+  }
+};
+
 
 module.exports = {
   createUser,
@@ -472,5 +691,9 @@ module.exports = {
   getUsersWithGroupsInCommon,
   getFeedPosts,
   getHabitsInGroupFromUserInternal,
-  getUserPets
+  getUserPets,
+  addLikes,
+  deletePost,
+  addPendingGroup,
+  acceptPendingGroup
 };

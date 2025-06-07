@@ -69,15 +69,14 @@ const getHabitsFromGroup = async (req, res) => {
     const result = await Promise.all(users.map(async (user) => {
       const habits = await getHabitsInGroupFromUserInternal(user._id, groupId);
 
-      //ver bien que es lo que tenemos que devolver (pantalla de semanario)
       return {
         username: user.username,
         photo: user.photo,
         habits: habits.map(h => ({
           name: h.name,
           icon: h.icon,
-          post_date: h.post_date,
-          post_photo: h.post_photo
+          frequency: h.frequency,
+          weekly_counter: h.weekly_counter
         }))
       };
     }));
