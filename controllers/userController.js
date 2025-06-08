@@ -169,6 +169,7 @@ const createHabitUser = async (req, res) => {
 };
 
 //funcion para editar un habito, capaz no tiene mucho sentido usarla
+//funciona para poder agregar habito a otro grupo. la usa la funcion add group to habit
 const editHabitUser = async (userId, habitName, updates) => {
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     throw new Error('El userId no es válido');
