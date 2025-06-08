@@ -84,11 +84,33 @@ const getUser = async (req, res) => {
 };
 
 
+//funcion que devuelve los grupos de un usuario (Id)
+const getUserGroupsId = async (userId) => {
+  try {
+    // Buscar al usuario y verificar existencia
+    const user = await User.findById(userId);
+    if (!user) throw new Error('Usuario no encontrado');
+    return user.id_groups;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
 //funcion que devuelve los grupos de un usuario
 const getUserGroups = async (req, res) => {
   try {
-    const user = await fetchUserById(req.params.id);
-    res.json({ id_groups: user.id_groups });
+    const userId = req.params.id;
+    const groupIds = await getUserGroupsId(userId);
+    const groups = await Group.find({ _id: { $in: groupIds } }).select('_id name photo');
+
+    const formattedGroups = groups.map(group => ({
+      id: group._id,
+      name: group.name,
+      photo: group.photo,
+    }));
+
+    res.json({ groups: formattedGroups });
+
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -446,14 +468,76 @@ const getUserHabitsInternal = async (userId) => {
 
 // aca no esta ordenado por fecha, estaria bueno que se ordenara segun fecha!
 // userlike y userdislike te dicen si el usuario likeo ese post en especifico o no idem dilike
+// const getFeedPosts = async (req, res) => {
+//   try {
+//     const userId = req.params.id;
+
+//     // Obtenemos usuarios con grupos en común
+//     const usersWithGroups = await getUsersWithGroupsInCommonInternal(userId);
+
+//     const result = [];
+
+//     for (const { user: otherUser, commonGroups } of usersWithGroups) {
+//       let userHabits = [];
+
+//       for (const groupId of commonGroups) {
+//         const habits = await getHabitsInGroupFromUserInternal(otherUser._id.toString(), groupId);
+//         userHabits = userHabits.concat(habits);
+//       }
+
+//       // Eliminar hábitos duplicados
+//       const uniqueHabits = Array.from(new Map(userHabits.map(h => [h._id.toString(), h])).values());
+
+//       result.push({
+//         username: otherUser.username,
+//         userHabits: uniqueHabits.map(habit => ({
+//         name: habit.name,
+//         icon: habit.icon,
+//         posts: habit.posts.map(post => ({
+//           date: post.date,
+//           photo: post.photo,
+//           likes: post.likes,
+//           dislikes: post.dislikes, 
+//           userLike: post.likes.some(likeId => likeId.toString() === userId.toString()),
+//           userDislike: post.dislikes.some(dislikeId => dislikeId.toString() === userId.toString())
+//           }))
+//         }))
+//       });
+//     }
+
+//     const user = await User.findById(userId);
+//     const habits = await getUserHabitsInternal(userId);
+
+//     result.push({
+//       username: user.username,
+//       userHabits: habits.map(habit => ({
+//         name: habit.name,
+//         icon: habit.icon,
+//         posts: habit.posts.map(post => ({
+//           date: post.date,
+//           photo: post.photo,
+//           likes: post.likes,       // lista de ObjectId (puede popularse si querés)
+//           dislikes: post.dislikes,
+//           userLike: post.likes.some(likeId => likeId.toString() === userId.toString()),
+//           userDislike: post.dislikes.some(dislikeId => dislikeId.toString() === userId.toString())
+//       }))
+//     }))
+//   });
+
+//     res.json(result);
+//   } catch (error) {
+//     res.status(400).json({ error: error.message });
+//   }
+// };
+
+// userlike y userdislike te dicen si el usuario likeo ese post en especifico o no idem dilike
+// ordenados por fecha
 const getFeedPosts = async (req, res) => {
   try {
     const userId = req.params.id;
 
-    // Obtenemos usuarios con grupos en común
     const usersWithGroups = await getUsersWithGroupsInCommonInternal(userId);
-
-    const result = [];
+    const feedPosts = [];
 
     for (const { user: otherUser, commonGroups } of usersWithGroups) {
       let userHabits = [];
@@ -466,47 +550,53 @@ const getFeedPosts = async (req, res) => {
       // Eliminar hábitos duplicados
       const uniqueHabits = Array.from(new Map(userHabits.map(h => [h._id.toString(), h])).values());
 
-      result.push({
-        username: otherUser.username,
-        userHabits: uniqueHabits.map(habit => ({
-        name: habit.name,
-        icon: habit.icon,
-        posts: habit.posts.map(post => ({
-          date: post.date,
-          photo: post.photo,
-          likes: post.likes,
-          dislikes: post.dislikes, 
-          userLike: post.likes.some(likeId => likeId.toString() === userId.toString()),
-          userDislike: post.dislikes.some(dislikeId => dislikeId.toString() === userId.toString())
-          }))
-        }))
-      });
+      // Recolectar todos los posts individualmente
+      for (const habit of uniqueHabits) {
+        for (const post of habit.posts) {
+          feedPosts.push({
+            username: otherUser.username,
+            habitName: habit.name,
+            habitIcon: habit.icon,
+            postDate: post.date,
+            postPhoto: post.photo,
+            likes: post.likes,
+            dislikes: post.dislikes,
+            userLike: post.likes.some(id => id.toString() === userId.toString()),
+            userDislike: post.dislikes.some(id => id.toString() === userId.toString())
+          });
+        }
+      }
     }
 
-    const user = await User.findById(userId);
-    const habits = await getUserHabitsInternal(userId);
+    // Agregar también los posts del propio usuario
+    const currentUser = await User.findById(userId);
+    const ownHabits = await getUserHabitsInternal(userId);
 
-    result.push({
-      username: user.username,
-      userHabits: habits.map(habit => ({
-        name: habit.name,
-        icon: habit.icon,
-        posts: habit.posts.map(post => ({
-          date: post.date,
-          photo: post.photo,
-          likes: post.likes,       // lista de ObjectId (puede popularse si querés)
+    for (const habit of ownHabits) {
+      for (const post of habit.posts) {
+        feedPosts.push({
+          username: currentUser.username,
+          habitName: habit.name,
+          habitIcon: habit.icon,
+          postDate: post.date,
+          postPhoto: post.photo,
+          likes: post.likes,
           dislikes: post.dislikes,
-          userLike: post.likes.some(likeId => likeId.toString() === userId.toString()),
-          userDislike: post.dislikes.some(dislikeId => dislikeId.toString() === userId.toString())
-      }))
-    }))
-  });
+          userLike: post.likes.some(id => id.toString() === userId.toString()),
+          userDislike: post.dislikes.some(id => id.toString() === userId.toString())
+        });
+      }
+    }
 
-    res.json(result);
+    // Ordenar por fecha (más reciente primero)
+    feedPosts.sort((a, b) => new Date(b.postDate) - new Date(a.postDate));
+
+    res.json(feedPosts);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 // Funcion que borra un post
 const deletePost = async (req, res) => {
