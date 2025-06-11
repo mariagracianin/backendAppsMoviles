@@ -1,27 +1,82 @@
 const User = require('../models/User');
 const Group = require('../models/Group');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
-// falta loginUser
+//Login usuario
+const loginUser = async (req, res) => {
+  const { mail, password } = req.body;
 
+  // 1. Buscar el usuario
+  const user = await User.findOne({ mail });
+  if (!user) {
+    return res.status(401).json({ error: 'Credenciales inválidas' });
+  }
+
+  // 2. Verificar contraseña
+  const isMatch = await user.comparePassword(password);
+  if (!isMatch) {
+    return res.status(401).json({ error: 'Credenciales inválidas' });
+  }
+
+  // 3. Crear y devolver token JWT
+  const token = jwt.sign({ userId: user._id }, 'roxi_joaqui_clave_secreta', { expiresIn: '2h' });
+
+  // 4. Enviar respuesta
+  res.json({
+    message: 'Login exitoso',
+    token,
+    userId: user._id
+  });
+};
 // con lo de valid user se puede usar para el resto de las funciones tambien que le pasas un get pero no entinedo si es necesario o no, en alguna funcion abajo hice un comentario de esto
 
-//crear un nuevo usuario
+
+//crear un nuevo usuario NUEVO
 const createUser = async (req, res) => {
   try {
-    const newUser = new User(req.body);
+    const { password, ...rest } = req.body;
+
+    // Hashear la contraseña
+    const hash = await bcrypt.hash(password, 10);
+
+    // Crear el nuevo usuario con la contraseña hasheada
+    const newUser = new User({ ...rest, password: hash });
+
     const saved = await newUser.save();
-    res.status(201).json({ id: saved._id, user: saved }); //devuelve el ID de mongo
+
+    // Convertir a objeto plano y eliminar la contraseña
+    const userToReturn = saved.toObject();
+    delete userToReturn.password;
+
+    res.status(201).json({ id: saved._id, user: userToReturn });
   } catch (err) {
     if (err.code === 11000) {
-      // Error de duplicado
       const duplicatedField = Object.keys(err.keyValue)[0];
-      return res.status(400).json({ error: `${duplicatedField} ya está en uso.` }); //error si se repiten las primary keys
+      return res.status(400).json({ error: `${duplicatedField} ya está en uso.` });
     }
     console.error('Error al guardar el usuario:', err);
     res.status(500).json({ error: 'Error al guardar en la base de datos' });
   }
 };
+
+// //crear un nuevo usuario VIEJO
+// const createUser = async (req, res) => {
+//   try {
+//     const newUser = new User(req.body);
+//     const saved = await newUser.save();
+//     res.status(201).json({ id: saved._id, user: saved }); //devuelve el ID de mongo
+//   } catch (err) {
+//     if (err.code === 11000) {
+//       // Error de duplicado
+//       const duplicatedField = Object.keys(err.keyValue)[0];
+//       return res.status(400).json({ error: `${duplicatedField} ya está en uso.` }); //error si se repiten las primary keys
+//     }
+//     console.error('Error al guardar el usuario:', err);
+//     res.status(500).json({ error: 'Error al guardar en la base de datos' });
+//   }
+// };
 
 // función que verifica si un usuario existe y el id es válido
 //lo tuve que poner aca tambien para no tener dependencias circulares
@@ -760,5 +815,6 @@ module.exports = {
   addLikes,
   deletePost,
   addPendingGroup,
-  acceptPendingGroup
+  acceptPendingGroup,
+  loginUser
 };

@@ -18,9 +18,11 @@
   "homepage": "https://github.com/mariagracianin/backendAppsMoviles#readme",
   "description": "",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
-    "mongoose": "^8.15.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.15.1",
     "node-cron": "^4.1.0"
   }
 }
