@@ -16,7 +16,8 @@ const groupSchema = new mongoose.Schema({
         type: String
     },
     pet_status: {
-        type: String
+        type: String,
+        default: "Sad" //happy, sad, super happy
     }
 }, {
   timestamps: true // agrega createdAt y updatedAt automáticamente

@@ -22,36 +22,9 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.error('Error al conectar MongoDB', err));
 
 // Tarea programada todos los días a las 00:00
-cron.schedule('32 19 * * *', async () => {
+cron.schedule('23 20 * * *', async () => { //esto cambiarlo!!!!!!!
   await ejecutarTareaDiaria();
 });
-
-// Función que se ejecuta a las 00:00
-// async function ejecutarTareaDiaria() {
-//   try {
-//     console.log('Ejecutando tarea programada...');
-//     const now = new Date();
-
-//     // llamar funcion calulos()
-
-//     const userCount = await User.countDocuments();
-//     const groupCount = await Group.countDocuments();
-
-//     // Crear nuevo registro (historial)
-//     const nuevoLog = new UpdateLog({
-//       taskName: 'daily-update',
-//       date: now,
-//       userCount: userCount,
-//       groupCount: groupCount
-//     });
-
-//     await nuevoLog.save();
-
-//     console.log(`Log guardado: ${userCount} usuarios, ${groupCount} grupos, fecha ${now.toISOString()}`);
-//   } catch (error) {
-//     console.error('Error en tarea diaria:', error);
-//   }
-// }
 
 // Verifica si se perdió alguna ejecución diaria
 async function verificarActualizacion() {
@@ -89,14 +62,11 @@ app.get('/historial-actualizaciones', async (req, res) => {
 // Ruta base
 app.get('/', async (req, res) => {
   try {
-    // Eliminar datos anteriores
     await mongoose.connection.db.dropDatabase();
 
-    // Crear modelos
     const Group = require('./models/Group');
     const User = require('./models/User');
 
-    // Crear grupos
     const groupA = new Group({
       id: 1,
       name: 'Grupo A',
@@ -115,7 +85,6 @@ app.get('/', async (req, res) => {
     });
     const savedGroupB = await groupB.save();
 
-    // Crear usuarios
     const users = [];
 
     for (let i = 1; i <= 10; i++) {
@@ -123,15 +92,55 @@ app.get('/', async (req, res) => {
       if (i <= 7) groupIds.push(savedGroupA._id);
       if (i >= 6) groupIds.push(savedGroupB._id);
 
-      // Generar 3 posts falsos
-      const posts = [];
-      for (let j = 0; j < 3; j++) {
-        posts.push({
-          date: new Date(Date.now() - j * 86400000),
-          photo: `https://picsum.photos/200/300?random=${i}${j}`,
-          likes: [],
-          dislikes: []
-        });
+      // Función para generar posts
+      const generatePosts = (userIndex, habitIndex) => {
+        const posts = [];
+        for (let j = 0; j < 3; j++) {
+          posts.push({
+            date: new Date(Date.now() - j * 86400000),
+            photo: `https://picsum.photos/200/300?random=${userIndex}${habitIndex}${j}`,
+            likes: [],
+            dislikes: []
+          });
+        }
+        return posts;
+      };
+
+      // Crear hábitos
+      const habits = [];
+
+      // Primer hábito (todos los usuarios tienen al menos este hábito)
+      habits.push({
+        name: 'Beber agua',
+        frequency: 7,
+        score: Math.floor(Math.random() * 10),
+        icon: '💧',
+        color: '#00f',
+        weekly_counter: [1, 1, 1, 0, 0, 0, 1],
+        posts: generatePosts(i, 1),
+        post_dates: [],
+        id_groups: []
+      });
+
+      // Actualizo post_dates y id_groups del primer hábito
+      habits[0].post_dates = habits[0].posts.map(p => p.date);
+      habits[0].id_groups = groupIds.length > 0 ? [groupIds[0]] : [];
+
+      // Para usuarios 1 y 2, agrego un segundo hábito en Grupo A
+      if ((i === 1 || i === 2) && groupIds.includes(savedGroupA._id)) {
+        const secondHabit = {
+          name: 'Hacer ejercicio',
+          frequency: 5,
+          score: Math.floor(Math.random() * 10),
+          icon: '🏋️‍♂️',
+          color: '#f00',
+          weekly_counter: [1, 0, 1, 1, 0, 1, 0],
+          posts: generatePosts(i, 2),
+          post_dates: [],
+          id_groups: [savedGroupA._id]
+        };
+        secondHabit.post_dates = secondHabit.posts.map(p => p.date);
+        habits.push(secondHabit);
       }
 
       users.push(new User({
@@ -141,30 +150,17 @@ app.get('/', async (req, res) => {
         photo: `https://randomuser.me/api/portraits/lego/${i}.jpg`,
         id_groups: groupIds,
         id_pending_groups: [],
-        habits: [{
-          name: 'Beber agua',
-          frequency: 7,
-          score: Math.floor(Math.random() * 10),
-          icon: '💧',
-          color: '#00f',
-          weekly_counter: [1, 1, 1, 0, 0, 0, 1],
-          posts: posts,
-          post_dates: posts.map(p => p.date),
-          id_groups: [...groupIds] // 👈 importante: clonado
-        }]
+        habits: habits
       }));
     }
 
-
     await User.insertMany(users);
 
-    // Actualizar posts con likes/dislikes dentro del mismo grupo
-    const allUsers = await User.find(); // obtener usuarios insertados
+    const allUsers = await User.find();
 
     for (const user of allUsers) {
       for (const habit of user.habits) {
         for (const post of habit.posts) {
-          // Obtener usuarios del mismo grupo (incluyendo a sí mismo)
           const groupMemberIds = new Set();
           for (const groupId of habit.id_groups) {
             const groupMembers = allUsers.filter(
@@ -174,21 +170,17 @@ app.get('/', async (req, res) => {
           }
 
           const groupMemberArray = Array.from(groupMemberIds);
-
-          // Asignar likes y dislikes aleatorios (permitiendo autolike)
           const likeCount = Math.floor(Math.random() * groupMemberArray.length);
           const dislikeCount = Math.floor(Math.random() * (groupMemberArray.length - likeCount));
-
           const shuffled = groupMemberArray.sort(() => 0.5 - Math.random());
           post.likes = shuffled.slice(0, likeCount);
           post.dislikes = shuffled.slice(likeCount, likeCount + dislikeCount);
         }
       }
-
-      await user.save(); // guardar cambios en el usuario
+      await user.save();
     }
 
-    res.send('Base de datos inicializada con hábitos vinculados a grupos 🎯');
+    res.send('Base de datos inicializada con usuarios con hábitos múltiples en grupos 🎯');
   } catch (error) {
     console.error('Error inicializando datos:', error);
     res.status(500).send('Error al inicializar datos de prueba');
