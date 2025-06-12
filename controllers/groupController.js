@@ -26,8 +26,6 @@ const createGroup = async (req, res) => {
   }
 };
 
-
-
 const editGroup = async (req, res) => {
   try {
     const newGroup = new Group(req.body);
@@ -102,9 +100,48 @@ const getHabitsFromGroup = async (req, res) => {
 };
 
 
+const getGroupRanking = async (req, res) => {
+  const { groupId } = req.params;
+
+  try {
+    // Traer solo los usuarios que pertenecen al grupo
+    const users = await User.find({ id_groups: groupId });
+
+    const scores = users.map(user => {
+      // Filtrar hábitos que pertenecen al grupo
+      const groupHabits = user.habits.filter(habit =>
+        habit.id_groups && habit.id_groups.includes(groupId)
+      );
+
+      if (groupHabits.length === 0) return null;
+
+      // Calcular promedio de scores
+      const totalScore = groupHabits.reduce((sum, habit) => sum + habit.score, 0);
+      const averageScore = totalScore / groupHabits.length;
+
+      return {
+        username: user.username,
+        photo: user.photo,
+        score: averageScore
+      };
+    });
+
+    // Filtrar usuarios sin hábitos del grupo y ordenar
+    const sortedScores = scores
+      .filter(Boolean)
+      .sort((a, b) => b.score - a.score);
+
+    res.status(200).json(sortedScores);
+  } catch (error) {
+    console.error('Error getting group scores:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 module.exports = {
   createGroup,
   editGroup,
   getUsersFromGroup,
-  getHabitsFromGroup
+  getHabitsFromGroup,
+  getGroupRanking
 };

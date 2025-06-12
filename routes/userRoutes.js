@@ -5,7 +5,7 @@ const {
   addGroupToHabit, getUserGroups, getUserPendingGroups, getUserPets,
   getHabitsInGroupFromUser, getUsersWithGroupsInCommon, getFeedPosts,
   addLikes, deletePost, addPendingGroup, acceptPendingGroup, getUserHabits,
-  loginUser
+  loginUser, getUserScore
 } = require('../controllers/userController');
 
 const authMiddleware = require('../middlewares/auth');
@@ -32,6 +32,8 @@ router.get('/:id/pets', authMiddleware, getUserPets);
 router.get('/:userId/:groupId/getHabitsInGroupsFromUser', authMiddleware, getHabitsInGroupFromUser);
 router.get('/:id/getUsersWithGroupsInCommon', authMiddleware, getUsersWithGroupsInCommon);
 router.get('/:id/getFeedPosts', authMiddleware, getFeedPosts);
+router.get('/:id/getUserScore', authMiddleware, getUserScore);
+
 
 console.log("✔ Rutas de usuario cargadas");
 

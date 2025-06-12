@@ -796,6 +796,37 @@ const acceptPendingGroup = async (req, res) => {
   }
 };
 
+const getUserScore = async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Buscar usuario por id
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Si no tiene hábitos, el score es 0
+    if (!user.habits || user.habits.length === 0) {
+      return res.status(200).json({ username: user.username, score: 0 });
+    }
+
+    // Calcular promedio de scores de todos los hábitos
+    const totalScore = user.habits.reduce((sum, habit) => sum + (habit.score || 0), 0);
+    const averageScore = totalScore / user.habits.length;
+
+    // Devolver solo username y score
+    res.status(200).json({
+      _id: user._id,
+      score: averageScore
+    });
+  } catch (error) {
+    console.error('Error getting user score:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
 
 module.exports = {
   createUser,
@@ -816,5 +847,6 @@ module.exports = {
   deletePost,
   addPendingGroup,
   acceptPendingGroup,
-  loginUser
+  loginUser,
+  getUserScore
 };
