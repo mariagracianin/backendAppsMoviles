@@ -9,7 +9,7 @@ const groupSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    photo: {
+    color: {
         type: String 
     },
     pet_name: {

@@ -29,7 +29,7 @@ router.get('/:id/habits', authMiddleware, getUserHabits);
 router.get('/:id/groups', authMiddleware, getUserGroups);
 router.get('/:id/pendingGroups', authMiddleware, getUserPendingGroups);
 router.get('/:id/pets', authMiddleware, getUserPets);
-router.get('/:userId/:groupId/getHabitsInGroupsFromUser', authMiddleware, getHabitsInGroupFromUser);
+router.get('/:userId/:groupId/getHabitsInGroupsFromUser', authMiddleware, getHabitsInGroupFromUser); //--> Falta hacer request de postman
 router.get('/:id/getUsersWithGroupsInCommon', authMiddleware, getUsersWithGroupsInCommon);
 router.get('/:id/getFeedPosts', authMiddleware, getFeedPosts);
 router.get('/:id/getUserScore', authMiddleware, getUserScore);
