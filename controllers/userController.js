@@ -156,12 +156,12 @@ const getUserGroups = async (req, res) => {
   try {
     const userId = req.params.id;
     const groupIds = await getUserGroupsId(userId);
-    const groups = await Group.find({ _id: { $in: groupIds } }).select('_id name photo');
+    const groups = await Group.find({ _id: { $in: groupIds } }).select('_id name color');
 
     const formattedGroups = groups.map(group => ({
       id: group._id,
       name: group.name,
-      photo: group.photo,
+      color: group.color,
     }));
 
     res.json({ groups: formattedGroups });

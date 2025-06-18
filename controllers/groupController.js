@@ -28,12 +28,30 @@ const createGroup = async (req, res) => {
 
 const editGroup = async (req, res) => {
   try {
-    const newGroup = new Group(req.body);
-    const saved = await newGroup.save();
-    res.status(201).json(saved);
-  } catch (err) {
-    console.error('Error al guardar el grupo:', err);
-    res.status(500).json({ error: 'Error al guardar en la base de datos' });
+    const { _id, name, color, pet_name } = req.body;
+
+    if (!_id) {
+      return res.status(400).json({ message: 'El ID del grupo es obligatorio.' });
+    }
+
+    if (!name) {
+      return res.status(400).json({ message: 'El nombre del grupo es obligatorio.' });
+    }
+
+    const updatedGroup = await Group.findByIdAndUpdate(
+      _id,
+      { name, color, pet_name },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedGroup) {
+      return res.status(404).json({ message: 'Grupo no encontrado.' });
+    }
+
+    res.status(200).json(updatedGroup);
+  } catch (error) {
+    console.error('Error al editar el grupo:', error);
+    res.status(500).json({ message: 'Error interno del servidor.' });
   }
 };
 
