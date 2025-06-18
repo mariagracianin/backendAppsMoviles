@@ -546,6 +546,7 @@ const getFeedPosts = async (req, res) => {
         for (const post of habit.posts) {
           feedPosts.push({
             username: otherUser.username,
+            userPhoto: otherUser.photo,
             habitName: habit.name,
             habitIcon: habit.icon,
             postDate: post.date,
