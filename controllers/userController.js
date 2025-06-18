@@ -340,7 +340,7 @@ const loadHabitUser = async (req, res) => {
     // Guardar cambios en el documento del usuario
     await user.save();
 
-    res.status(200).json({ message: 'Hábito actualizado correctamente', habit });
+    res.status(200).json({ message: 'Hábito actualizado correctamente'});
   } catch (error) {
     console.error('Error al cargar hábito del usuario:', error);
     if (error.message) {
@@ -372,7 +372,7 @@ const addGroupToHabit = async (req, res) => {
     // editHabitUser espera un array en id_groups
     const updatedHabit = await editHabitUser(userId, habitName, { id_groups: [newGroupId] });
 
-    res.status(200).json({ message: 'Grupo agregado correctamente al hábito', habit: updatedHabit });
+    res.status(200).json({ message: 'Grupo agregado correctamente al hábito'});
   } catch (error) {
     console.error('Error al agregar grupo al hábito:', error);
     res.status(400).json({ error: error.message || 'Error en la base de datos' });
