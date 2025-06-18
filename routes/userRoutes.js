@@ -7,14 +7,14 @@ const {
   addLikes, deletePost, addPendingGroup, acceptPendingGroup, getUserHabits,
   loginUser, getUserScore
 } = require('../controllers/userController');
-
+const upload = require('../middlewares/upload');
 const authMiddleware = require('../middlewares/auth');
 
 router.post('/login', loginUser);
 router.post('/create', createUser);
 
 // Rutas protegidas (requieren token)
-router.post('/edit', authMiddleware, editUser);
+router.post('/edit', authMiddleware, upload.single('photo'), editUser); //agregué esto
 router.post('/createHabit', authMiddleware, createHabitUser);
 router.post('/loadHabit', authMiddleware, loadHabitUser);
 router.post('/addGroupToHabit', authMiddleware, addGroupToHabit);

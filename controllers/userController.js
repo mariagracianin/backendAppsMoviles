@@ -3,6 +3,7 @@ const Group = require('../models/Group');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const uploadImageToS3 = require('../utils/uploadImageToS3');
 
 //Login usuario
 const loginUser = async (req, res) => {
@@ -197,6 +198,12 @@ const editUser = async (req, res) => {
       return res.status(400).json({ error: 'El _id es obligatorio para editar el usuario' });
     }
 
+    // Si viene una nueva imagen, la subimos a S3 y actualizamos el campo photo
+    if (req.file) {
+      const imageUrl = await uploadImageToS3(req.file);
+      updates.photo = imageUrl;
+    }
+
     const updatedUser = await User.findByIdAndUpdate(_id, updates, { new: true, runValidators: true });
 
     if (!updatedUser) {
@@ -340,7 +347,7 @@ const loadHabitUser = async (req, res) => {
     // Guardar cambios en el documento del usuario
     await user.save();
 
-    res.status(200).json({ message: 'Hábito actualizado correctamente', habit });
+    res.status(200).json({ message: 'Hábito actualizado correctamente'});
   } catch (error) {
     console.error('Error al cargar hábito del usuario:', error);
     if (error.message) {
@@ -372,7 +379,7 @@ const addGroupToHabit = async (req, res) => {
     // editHabitUser espera un array en id_groups
     const updatedHabit = await editHabitUser(userId, habitName, { id_groups: [newGroupId] });
 
-    res.status(200).json({ message: 'Grupo agregado correctamente al hábito', habit: updatedHabit });
+    res.status(200).json({ message: 'Grupo agregado correctamente al hábito'});
   } catch (error) {
     console.error('Error al agregar grupo al hábito:', error);
     res.status(400).json({ error: error.message || 'Error en la base de datos' });

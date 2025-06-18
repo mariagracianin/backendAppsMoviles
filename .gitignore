@@ -29,3 +29,5 @@ coverage/
 
 # Archivos de subida temporales
 uploads/
+
+.env
