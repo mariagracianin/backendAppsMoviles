@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const uploadImageToS3 = require('../utils/uploadImageToS3');
+const { getImageFromS3 } = require('../utils/s3Utils');
 
 //Login usuario
 const loginUser = async (req, res) => {
@@ -139,6 +140,19 @@ const getUser = async (req, res) => {
   }
 };
 
+const getUserPhoto = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user || !user.photo) return res.status(404).json({ error: 'Foto no encontrada' });
+
+    const stream = await getImageFromS3(user.photo);
+    res.setHeader('Content-Type', 'image/jpeg'); // o dinámico si querés
+    stream.pipe(res);
+  } catch (err) {
+    console.error('Error al obtener imagen:', err);
+    res.status(500).json({ error: 'Error al obtener imagen' });
+  }
+};
 
 //funcion que devuelve los grupos de un usuario (Id)
 const getUserGroupsId = async (userId) => {
@@ -200,8 +214,8 @@ const editUser = async (req, res) => {
 
     // Si viene una nueva imagen, la subimos a S3 y actualizamos el campo photo
     if (req.file) {
-      const imageUrl = await uploadImageToS3(req.file);
-      updates.photo = imageUrl;
+      const imageKey = await uploadImageToS3(req.file);
+      updates.photo = imageKey; // solo el "path" interno de S3
     }
 
     const updatedUser = await User.findByIdAndUpdate(_id, updates, { new: true, runValidators: true });
@@ -552,6 +566,7 @@ const getFeedPosts = async (req, res) => {
       for (const habit of uniqueHabits) {
         for (const post of habit.posts) {
           feedPosts.push({
+            id: otherUser._id,
             username: otherUser.username,
             userPhoto: otherUser.photo,
             habitName: habit.name,
@@ -856,5 +871,6 @@ module.exports = {
   addPendingGroup,
   acceptPendingGroup,
   loginUser,
-  getUserScore
+  getUserScore,
+  getUserPhoto
 };

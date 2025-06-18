@@ -5,7 +5,7 @@ const {
   addGroupToHabit, getUserGroups, getUserPendingGroups, getUserPets,
   getHabitsInGroupFromUser, getUsersWithGroupsInCommon, getFeedPosts,
   addLikes, deletePost, addPendingGroup, acceptPendingGroup, getUserHabits,
-  loginUser, getUserScore
+  loginUser, getUserScore,getUserPhoto
 } = require('../controllers/userController');
 const upload = require('../middlewares/upload');
 const authMiddleware = require('../middlewares/auth');
@@ -33,6 +33,7 @@ router.get('/:userId/:groupId/getHabitsInGroupsFromUser', authMiddleware, getHab
 router.get('/:id/getUsersWithGroupsInCommon', authMiddleware, getUsersWithGroupsInCommon);
 router.get('/:id/getFeedPosts', authMiddleware, getFeedPosts);
 router.get('/:id/getUserScore', authMiddleware, getUserScore);
+router.get('/:id/photo', authMiddleware, getUserPhoto); 
 
 
 console.log("✔ Rutas de usuario cargadas");
