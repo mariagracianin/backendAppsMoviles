@@ -1,22 +1,24 @@
-// utils/uploadImageToS3.js
-const { PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { v4: uuidv4 } = require('uuid');
-const s3 = require('../config/s3');
-require('dotenv').config();
+const path = require('path');
 
-async function uploadImageToS3(file) {
-  const filename = `imagenes/${uuidv4()}-${file.originalname}`;
+const s3 = new S3Client({ region: process.env.AWS_REGION });
+
+const uploadImageToS3 = async (file) => {
+  const ext = path.extname(file.originalname); // .jpg, .png
+  const key = `imagenes/${uuidv4()}-${file.originalname}`;
+
   const command = new PutObjectCommand({
     Bucket: process.env.S3_BUCKET,
-    Key: filename,
+    Key: key,
     Body: file.buffer,
     ContentType: file.mimetype,
-    ACL: 'public-read'
+    ACL: 'private', 
   });
 
   await s3.send(command);
 
-  return `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${filename}`;
-}
+  return key; 
+};
 
 module.exports = uploadImageToS3;
