@@ -5,7 +5,8 @@ const { getHabitsInGroupFromUserInternal } = require('./userController.js');
 
 const createGroup = async (req, res) => {
   try {
-    const { userId, ...groupData } = req.body;
+    const userId = req.userId;
+    const groupData = req.body;
 
     // 1. Crear el grupo
     const newGroup = new Group(groupData);

@@ -122,11 +122,11 @@ const fetchUserByUsername = async (username) => {
 
   return user;
 };
-
+///--------------------------------------------------------
 //devuelve todos los datos del usuario. Hay que pasarle el id de mongo en este formato http://localhost:3000/user/6839fc99705dbc0534b703f2
 const getUser = async (req, res) => {
   try {
-    const id = req.params.id;
+    const id = req.userId; //NUEVOID req.params.id;
     const user = await fetchUserById(id);
 
     const userObj = user.toObject(); // convierte el documento Mongoose a objeto plano
@@ -155,7 +155,7 @@ const getUserGroupsId = async (userId) => {
 //funcion que devuelve los grupos de un usuario
 const getUserGroups = async (req, res) => {
   try {
-    const userId = req.params.id;
+    const userId = req.userId; //NUEVOID req.params.id;
     const groupIds = await getUserGroupsId(userId);
     const groups = await Group.find({ _id: { $in: groupIds } }).select('_id name color');
 
@@ -175,7 +175,7 @@ const getUserGroups = async (req, res) => {
 //funcion que devuelve las invitaciones de un usuario
 const getUserPendingGroups = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).populate('id_pending_groups');
+    const user = await User.findById(req.userId).populate('id_pending_groups');
 
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -225,7 +225,8 @@ const editUser = async (req, res) => {
 //crear un habito nuevo para un usuario, fijandose si ya existe un hábito con ese nombre
 const createHabitUser = async (req, res) => {
   try {
-    const { userId, habit } = req.body;
+    const userId = req.userId;
+    const { habit } = req.body;
 
     if (!userId || !habit) {
       return res.status(400).json({ error: 'Faltan datos requeridos: userId o habit' });
@@ -305,7 +306,8 @@ const editHabitUser = async (userId, habitName, updates) => {
 //funcion para marcar que se completo un habito con una foto
 const loadHabitUser = async (req, res) => {
   try {
-    const { userId, habitName, post_photo } = req.body;
+    const userId = req.userId;
+    const { habitName, post_photo } = req.body;
 
     if (!userId || !habitName || !post_photo) {
       return res.status(400).json({ error: 'Faltan datos requeridos: userId, habitName o post_photo' });
@@ -361,7 +363,8 @@ const loadHabitUser = async (req, res) => {
 //ademas tendria que fijarse si la persona esta en ese grupo no??!! NO ESTA HECHO pero no se si es necesario
 const addGroupToHabit = async (req, res) => {
   try {
-    const { userId, habitName, newGroupId } = req.body;
+    const userId = req.userId;
+    const { habitName, newGroupId } = req.body;
 
     if (!userId || !habitName || !newGroupId) {
       return res.status(400).json({ error: 'Faltan datos requeridos: userId, habitName o newGroupId' });
@@ -390,7 +393,8 @@ const addGroupToHabit = async (req, res) => {
 // http://localhost:3000/user/683a43189ad5fb59ad9b182e/683796960242fdee4c5c4e4e/getHabitsInGroupsFromUser
 const getHabitsInGroupFromUser = async (req, res) => {
   try {
-    const { userId, groupId } = req.params;
+    const userId = req.userId;
+    const groupId  = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ error: 'El userId no es válido' });
@@ -420,7 +424,7 @@ const getHabitsInGroupFromUser = async (req, res) => {
 // funcion que devuelve los habitos de un usuario
 const getUserHabits = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
+    const user = await User.findById(req.userId)
       .populate('habits')
       .lean(); // Retorna un objeto plano de JS
 
@@ -445,7 +449,7 @@ const getUserHabits = async (req, res) => {
 // junto con los grupos que tienen en común
 // http://localhost:3000/user/683a43189ad5fb59ad9b182e/getUsersWithGroupsInCommon
 const getUsersWithGroupsInCommon = async (req, res) => {
-  const { id: userId } = req.params;
+  const userId = req.userId;
 
   try {
     if (!userId) throw new Error('Falta el id del usuario');
@@ -532,7 +536,7 @@ const getUserHabitsInternal = async (userId) => {
 // ordenados por fecha
 const getFeedPosts = async (req, res) => {
   try {
-    const userId = req.params.id;
+    const userId = req.userId;
 
     const usersWithGroups = await getUsersWithGroupsInCommonInternal(userId);
     const feedPosts = [];
@@ -600,7 +604,8 @@ const getFeedPosts = async (req, res) => {
 // Funcion que borra un post
 const deletePost = async (req, res) => {
   try {
-    const { userId, habitName, postDate } = req.body;
+    const userId = req.userId;
+    const { habitName, postDate } = req.body;
 
     if (!userId || !habitName || !postDate) {
       return res.status(400).json({ error: 'Faltan datos requeridos' });
@@ -650,7 +655,7 @@ const deletePost = async (req, res) => {
 //Da las mascotas de un usuario y el nombre del grupo(mascotas de cada grupo al que pertenece)
 const getUserPets = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.userId;
 
     // Buscar usuario por id y poblar grupos
     const user = await User.findById(id).populate('id_groups');
@@ -674,7 +679,8 @@ const getUserPets = async (req, res) => {
 // Funcion con la logica de poner/sacar likes y dislikes
 const addLikes = async (req, res) => {
   try {
-    const { userId, postOwnerUserId, habitName, postDate, like, dislike } = req.body;
+    const userId = req.userId;
+    const { postOwnerUserId, habitName, postDate, like, dislike } = req.body;
 
     if (!userId || !postOwnerUserId || !habitName || !postDate || like == null || dislike == null) {
       return res.status(400).json({ error: 'Faltan datos requeridos'});
@@ -774,7 +780,8 @@ const addPendingGroup = async (req, res) => {
 // accepted es un bool
 const acceptPendingGroup = async (req, res) => {
   try {
-    const { userId, groupId, accepted } = req.body; 
+    const userId = req.userId;
+    const { groupId, accepted } = req.body; 
 
     if (!userId || !groupId || accepted ==  null) {
       return res.status(400).json({ error: 'Faltan datos requeridos'});
@@ -805,7 +812,7 @@ const acceptPendingGroup = async (req, res) => {
 };
 
 const getUserScore = async (req, res) => {
-  const { id } = req.params;
+  const id = req.userId;
   try {
     // Buscar usuario por id
     const user = await User.findById(id);

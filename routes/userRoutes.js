@@ -24,15 +24,15 @@ router.post('/acceptPendingGroup', authMiddleware, acceptPendingGroup);
 router.delete('/deletePost', authMiddleware, deletePost);
 
 // GET protegidos (si querés que se requiera estar logueado)
-router.get('/:id', authMiddleware, getUser);
-router.get('/:id/habits', authMiddleware, getUserHabits);
-router.get('/:id/groups', authMiddleware, getUserGroups);
-router.get('/:id/pendingGroups', authMiddleware, getUserPendingGroups);
-router.get('/:id/pets', authMiddleware, getUserPets);
-router.get('/:userId/:groupId/getHabitsInGroupsFromUser', authMiddleware, getHabitsInGroupFromUser); //--> Falta hacer request de postman
-router.get('/:id/getUsersWithGroupsInCommon', authMiddleware, getUsersWithGroupsInCommon);
-router.get('/:id/getFeedPosts', authMiddleware, getFeedPosts);
-router.get('/:id/getUserScore', authMiddleware, getUserScore);
+router.get('/me', authMiddleware, getUser);
+router.get('/me/habits', authMiddleware, getUserHabits);
+router.get('/me/groups', authMiddleware, getUserGroups);
+router.get('/me/pendingGroups', authMiddleware, getUserPendingGroups);
+router.get('/me/pets', authMiddleware, getUserPets);
+router.get('/me/:groupId/getHabitsInGroupsFromUser', authMiddleware, getHabitsInGroupFromUser); //--> Falta hacer request de postman
+router.get('/me/getUsersWithGroupsInCommon', authMiddleware, getUsersWithGroupsInCommon);
+router.get('/me/getFeedPosts', authMiddleware, getFeedPosts);
+router.get('/me/getUserScore', authMiddleware, getUserScore);
 
 
 console.log("✔ Rutas de usuario cargadas");
