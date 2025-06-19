@@ -63,23 +63,6 @@ const createUser = async (req, res) => {
   }
 };
 
-// //crear un nuevo usuario VIEJO
-// const createUser = async (req, res) => {
-//   try {
-//     const newUser = new User(req.body);
-//     const saved = await newUser.save();
-//     res.status(201).json({ id: saved._id, user: saved }); //devuelve el ID de mongo
-//   } catch (err) {
-//     if (err.code === 11000) {
-//       // Error de duplicado
-//       const duplicatedField = Object.keys(err.keyValue)[0];
-//       return res.status(400).json({ error: `${duplicatedField} ya está en uso.` }); //error si se repiten las primary keys
-//     }
-//     console.error('Error al guardar el usuario:', err);
-//     res.status(500).json({ error: 'Error al guardar en la base de datos' });
-//   }
-// };
-
 // función que verifica si un usuario existe y el id es válido
 //lo tuve que poner aca tambien para no tener dependencias circulares
 const isValidUserId = async (id) => {
@@ -142,7 +125,7 @@ const getUser = async (req, res) => {
 
 const getUserPhoto = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.userId);
     if (!user || !user.photo) return res.status(404).json({ error: 'Foto no encontrada' });
 
     const stream = await getImageFromS3(user.photo);
@@ -206,7 +189,8 @@ const getUserPendingGroups = async (req, res) => {
 //sirve para poder agregar valores a los atributos del usuario. Por ejemplo agregar grupos.
 const editUser = async (req, res) => {
   try {
-    const { _id, ...updates } = req.body;
+    const _id = req.userId;
+    const { ...updates } = req.body;
 
     if (!_id) {
       return res.status(400).json({ error: 'El _id es obligatorio para editar el usuario' });
@@ -223,8 +207,12 @@ const editUser = async (req, res) => {
     if (!updatedUser) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
+ 
+    // Ocultar password
+    const userObj = updatedUser.toObject();
+    delete userObj.password;
 
-    res.status(200).json(updatedUser);
+    res.status(200).json(userObj);
 
   } catch (error) {
     if (error.code === 11000) {

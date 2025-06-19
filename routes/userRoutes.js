@@ -33,7 +33,7 @@ router.get('/me/:groupId/getHabitsInGroupsFromUser', authMiddleware, getHabitsIn
 router.get('/me/getUsersWithGroupsInCommon', authMiddleware, getUsersWithGroupsInCommon);
 router.get('/me/getFeedPosts', authMiddleware, getFeedPosts);
 router.get('/me/getUserScore', authMiddleware, getUserScore);
-router.get('/:id/photo', authMiddleware, getUserPhoto);
+router.get('/me/photo', authMiddleware, getUserPhoto);
 
 
 console.log("✔ Rutas de usuario cargadas");
