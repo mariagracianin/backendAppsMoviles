@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Group = require('../models/Group');
 const UpdateLog = require('../models/UpdateLog');
 const mongoose = require('mongoose');
+const deleteFromS3 = require('../utils/deleteImageFromS3');
 
 // Si es domingo: reestablece weekly counter 
 // Calcular score de habitos y de grupo (como el promedio de los scores de los habitos que estan en el grupo, considerando el peso de cada persona por igual (primero promedia los habitos de la persona, y despues de las diferentes personas del grupo))
@@ -24,8 +25,15 @@ async function ejecutarTareaDiaria() {
       let userModified = false;
 
       for (const habit of user.habits) {
-        // Filtrar posts dentro de los últimos 7 días
-        habit.posts = habit.posts.filter(post => post.date > sevenDaysAgo);
+        // Filtrar posts que tienen mas de 7 días y borrar las fotos de AWS
+        const oldPosts = habit.posts.filter(post => post.date <= sevenDaysAgo);
+        for (const post of oldPosts) {
+          try {
+            await deleteFromS3(post.photo);
+          } catch (error) {
+            console.error(`Error borrando foto ${post.photo}:`, error.message);
+          }
+        }
 
         // Filtrar post_dates recientes 
         const recentPostDates = habit.post_dates.filter(date => date > sevenDaysAgo);
@@ -39,7 +47,7 @@ async function ejecutarTareaDiaria() {
         habit.score = Math.round(habitScore);
 
         // Resetear weekly_counter solo si es lunes (1)
-        if (now.getDay() === 3) {
+        if (now.getDay() === 5) {
           habit.weekly_counter = [0, 0, 0, 0, 0, 0, 0];
         }
 
