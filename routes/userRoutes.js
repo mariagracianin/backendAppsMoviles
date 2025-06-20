@@ -5,7 +5,7 @@ const {
   addGroupToHabit, getUserGroups, getUserPendingGroups, getUserPets,
   getHabitsInGroupFromUser, getUsersWithGroupsInCommon, getFeedPosts,
   addLikes, deletePost, addPendingGroup, acceptPendingGroup, getUserHabits,
-  loginUser, getUserScore,getUserPhoto
+  loginUser, getUserScore,getUserPhoto, deleteFriendFromGroup
 } = require('../controllers/userController');
 const upload = require('../middlewares/upload');
 const authMiddleware = require('../middlewares/auth');
@@ -21,6 +21,7 @@ router.post('/addGroupToHabit', authMiddleware, addGroupToHabit);
 router.post('/addLikes', authMiddleware, addLikes);
 router.post('/addPendingGroup', authMiddleware, addPendingGroup);
 router.post('/acceptPendingGroup', authMiddleware, acceptPendingGroup);
+router.post('/deleteFriendFromGroup', authMiddleware, deleteFriendFromGroup);
 router.delete('/deletePost', authMiddleware, deletePost);
 
 // GET protegidos (si querés que se requiera estar logueado)

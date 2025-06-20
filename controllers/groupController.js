@@ -1,19 +1,27 @@
 const User = require('../models/User');
 const Group = require('../models/Group');
 const mongoose = require('mongoose');
-const { getHabitsInGroupFromUserInternal } = require('./userController.js'); 
+const { getHabitsInGroupFromUserInternal } = require('./userController.js');
 
+// Verifica si un usuario pertenece a un grupo
+const userBelongsToGroup = async (userId, groupId) => {
+  if (!mongoose.Types.ObjectId.isValid(groupId)) return false;
+
+  const user = await User.findById(userId);
+  if (!user) return false;
+
+  return user.id_groups.some(gId => gId.toString() === groupId.toString());
+};
+
+// Crear grupo: el creador se agrega automáticamente
 const createGroup = async (req, res) => {
   try {
     const userId = req.userId;
     const groupData = req.body;
 
-    // 1. Crear el grupo
     const newGroup = new Group(groupData);
     const savedGroup = await newGroup.save();
 
-    // 2. Agregar el grupo al usuario
-    const User = require('../models/User'); // Asegurate de tener esta importación al comienzo si no está
     await User.findByIdAndUpdate(
       userId,
       { $push: { id_groups: savedGroup._id } },
@@ -27,16 +35,19 @@ const createGroup = async (req, res) => {
   }
 };
 
+// Editar grupo solo si el usuario pertenece
 const editGroup = async (req, res) => {
   try {
+    const userId = req.userId;
     const { _id, name, color, pet_name } = req.body;
 
-    if (!_id) {
-      return res.status(400).json({ message: 'El ID del grupo es obligatorio.' });
+    if (!_id || !name) {
+      return res.status(400).json({ message: 'Faltan campos obligatorios.' });
     }
 
-    if (!name) {
-      return res.status(400).json({ message: 'El nombre del grupo es obligatorio.' });
+    const allowed = await userBelongsToGroup(userId, _id);
+    if (!allowed) {
+      return res.status(403).json({ message: 'No tienes permiso para editar este grupo.' });
     }
 
     const updatedGroup = await Group.findByIdAndUpdate(
@@ -57,49 +68,46 @@ const editGroup = async (req, res) => {
 };
 
 const isValidGroupId = async (id) => {
-  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-    console.log('ID no válido como ObjectId');
-    return false;
-  }
-
-  const exists = await Group.exists({ _id: id });
-  return !!exists;
+  return id && mongoose.Types.ObjectId.isValid(id) && await Group.exists({ _id: id });
 };
-
 
 const getUsersFromGroup = async (req, res) => {
   const { groupId } = req.params;
+
   try {
     const isValid = await isValidGroupId(groupId);
     if (!isValid) throw new Error('El id del grupo no es válido o no existe');
 
-    const users = await User.find({ id_groups: groupId }).select('username photo habits'); //solo trae estos datos
+    // Solo traemos los campos necesarios: username, _id y photo
+    const users = await User.find({ id_groups: groupId }).select('username photo');
+
     res.json(users);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
 
-//funcion interna reutilizable
+
 const getUsersFromGroupInternal = async (groupId) => {
   const isValid = await isValidGroupId(groupId);
   if (!isValid) throw new Error('El id del grupo no es válido o no existe');
 
-  return await User.find({ id_groups: groupId }).select('username photo habits'); //solo trae estos datos
+  return await User.find({ id_groups: groupId }).select('username photo habits');
 };
 
-
-//Trae todos los habitos de un grupo de la manera usuario + [habitos] (entero/obj) 
-//(usa la funcion getUsersFromGroup + getHabitsInGroupFromUser)
+// Devuelve los hábitos de los usuarios del grupo
 const getHabitsFromGroup = async (req, res) => {
   const { groupId } = req.params;
-
   try {
+    const allowed = await userBelongsToGroup(req.userId, groupId);
+    if (!allowed) {
+      return res.status(403).json({ message: 'No tienes permiso para ver los hábitos de este grupo.' });
+    }
+
     const users = await getUsersFromGroupInternal(groupId);
 
     const result = await Promise.all(users.map(async (user) => {
       const habits = await getHabitsInGroupFromUserInternal(user._id, groupId);
-
       return {
         username: user.username,
         photo: user.photo,
@@ -118,23 +126,26 @@ const getHabitsFromGroup = async (req, res) => {
   }
 };
 
-
+// Devuelve el ranking de usuarios por score en ese grupo
 const getGroupRanking = async (req, res) => {
   const { groupId } = req.params;
+  const userId = req.userId;
 
   try {
-    // Traer solo los usuarios que pertenecen al grupo
+    const allowed = await userBelongsToGroup(userId, groupId);
+    if (!allowed) {
+      return res.status(403).json({ message: 'No tienes permiso para ver este ranking.' });
+    }
+
     const users = await User.find({ id_groups: groupId });
 
     const scores = users.map(user => {
-      // Filtrar hábitos que pertenecen al grupo
       const groupHabits = user.habits.filter(habit =>
         habit.id_groups && habit.id_groups.includes(groupId)
       );
 
       if (groupHabits.length === 0) return null;
 
-      // Calcular promedio de scores
       const totalScore = groupHabits.reduce((sum, habit) => sum + habit.score, 0);
       const averageScore = totalScore / groupHabits.length;
 
@@ -145,22 +156,55 @@ const getGroupRanking = async (req, res) => {
       };
     });
 
-    // Filtrar usuarios sin hábitos del grupo y ordenar
-    const sortedScores = scores
-      .filter(Boolean)
-      .sort((a, b) => b.score - a.score);
-
+    const sortedScores = scores.filter(Boolean).sort((a, b) => b.score - a.score);
     res.status(200).json(sortedScores);
   } catch (error) {
-    console.error('Error getting group scores:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error al obtener el ranking:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
+
+// GetGroup
+const getGroup = async (req, res) => {
+  const { groupId } = req.params;
+  const userId = req.userId;
+
+  try {
+    const allowed = await userBelongsToGroup(userId, groupId);
+    if (!allowed) {
+      return res.status(403).json({ message: 'No tienes permiso para ver este grupo.' });
+    }
+
+    const group = await Group.findById(groupId).select('name color pet_name');
+    if (!group) {
+      return res.status(404).json({ message: 'Grupo no encontrado' });
+    }
+
+    const users = await User.find({ id_groups: groupId }).select('mail username');
+
+    const members = users.map(user => ({
+      mail: user.mail,
+      username: user.username
+    }));
+
+    res.status(200).json({
+      name: group.name,
+      color: group.color,
+      pet_name: group.pet_name,
+      members
+    });
+  } catch (error) {
+    console.error('Error al obtener datos del grupo:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
 
 module.exports = {
   createGroup,
   editGroup,
   getUsersFromGroup,
   getHabitsFromGroup,
-  getGroupRanking
+  getGroupRanking,
+  getGroup
 };

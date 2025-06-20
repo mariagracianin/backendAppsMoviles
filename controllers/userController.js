@@ -743,14 +743,15 @@ const addLikes = async (req, res) => {
 // usuario que manda inivtacion tinee que pertenecer al grupo? refinarlo ?
 const addPendingGroup = async (req, res) => {
   try {
-    const { friendUserId, groupId } = req.body;
+    const { friendEmail, groupId } = req.body;
+    console.log(friendEmail);
 
-    if (!friendUserId || !groupId) {
+    if (!friendEmail || !groupId) {
       return res.status(400).json({ error: 'Faltan datos requeridos' });
     }
 
-    // Buscar usuario por id
-    const userFriend = await User.findById(friendUserId);
+    // Buscar usuario por email
+    const userFriend = await User.findOne({ mail: friendEmail });
     if (!userFriend) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
@@ -844,6 +845,40 @@ const getUserScore = async (req, res) => {
   }
 };
 
+// Funcion con la logica de borrar a un amigo de un grupo
+const deleteFriendFromGroup = async (req, res) => {
+  try {
+    const { friendEmail, groupId } = req.body;
+
+    if (!friendEmail || !groupId) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
+
+    // Buscar usuario por email
+    const userFriend = await User.findOne({ mail: friendEmail });
+    if (!userFriend) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const groupIdStr = groupId.toString();
+    const originalLength = userFriend.id_groups.length;
+
+    // Filtrar el grupo fuera de la lista
+    userFriend.id_groups = userFriend.id_groups.filter(id => id.toString() !== groupIdStr);
+
+    if (userFriend.id_groups.length === originalLength) {
+      return res.status(400).json({ error: 'El usuario no pertenece a ese grupo' });
+    }
+
+    await userFriend.save();
+
+    res.status(200).json({ message: 'Usuario eliminado del grupo correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar usuario del grupo:', error);
+    res.status(400).json({ error: error.message || 'Error en la base de datos' });
+  }
+};
+
 
 
 module.exports = {
@@ -867,5 +902,6 @@ module.exports = {
   acceptPendingGroup,
   loginUser,
   getUserScore,
-  getUserPhoto
+  getUserPhoto,
+  deleteFriendFromGroup
 };
