@@ -1,9 +1,6 @@
-const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-require('dotenv').config();
-
-const s3 = new S3Client({
-  region: process.env.AWS_REGION,
-});
+// utils/deleteImageFromS3.js
+const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const s3 = require('../config/s3');
 
 /**
  * Borra una imagen del bucket S3 a partir del path interno (ej: "imagenes/xxx.jpg").

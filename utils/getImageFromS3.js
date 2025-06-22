@@ -1,6 +1,6 @@
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-
-const s3 = new S3Client({ region: process.env.AWS_REGION });
+// utils/getImageFromS3.js
+const { GetObjectCommand } = require('@aws-sdk/client-s3');
+const s3 = require('../config/s3');
 
 const getImageFromS3 = async (key) => {
   const command = new GetObjectCommand({

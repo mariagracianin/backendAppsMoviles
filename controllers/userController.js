@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt');
 const uploadImageToS3 = require('../utils/uploadImageToS3');
 const {getImageFromS3} = require('../utils/getImageFromS3');
 const deleteFromS3 = require('../utils/deleteImageFromS3');
-
+const getImageAsBase64 = require('../utils/getImageFromS3base64');
 
 //Login usuario
 const loginUser = async (req, res) => {
@@ -117,6 +117,11 @@ const getUser = async (req, res) => {
 
     const userObj = user.toObject(); // convierte el documento Mongoose a objeto plano
     delete userObj.password; // elimina el campo
+
+    // si tiene imagen, la agrego en base64
+    if (userObj.photo) {
+      userObj.photoBase64 = await getImageAsBase64(userObj.photo);
+    }
 
     res.json(userObj);
   } catch (error) {
@@ -571,14 +576,24 @@ const getFeedPosts = async (req, res) => {
       // Recolectar todos los posts individualmente
       for (const habit of uniqueHabits) {
         for (const post of habit.posts) {
+          // Convertir imágenes a base64 si existen
+          let userPhotoBase64 = null;
+          if (otherUser.photo) {
+            userPhotoBase64 = await getImageAsBase64(otherUser.photo);
+          }
+          let postPhotoBase64 = null;
+          if (post.photo) {
+            postPhotoBase64 = await getImageAsBase64(post.photo);
+          }
+
           feedPosts.push({
             id: otherUser._id,
             username: otherUser.username,
-            userPhoto: otherUser.photo,
+            userPhoto: userPhotoBase64,
             habitName: habit.name,
             habitIcon: habit.icon,
             postDate: post.date,
-            postPhoto: post.photo,
+            postPhoto: postPhotoBase64,
             likes: post.likes,
             dislikes: post.dislikes,
             userLike: post.likes.some(id => id.toString() === userId.toString()),
@@ -592,14 +607,24 @@ const getFeedPosts = async (req, res) => {
     const currentUser = await User.findById(userId);
     const ownHabits = await getUserHabitsInternal(userId);
 
+    let currentUserPhotoBase64 = null;
+    if (currentUser.photo) {
+      currentUserPhotoBase64 = await getImageAsBase64(currentUser.photo);
+    }
+
     for (const habit of ownHabits) {
       for (const post of habit.posts) {
+        let postPhotoBase64 = null;
+        if (post.photo) {
+          postPhotoBase64 = await getImageAsBase64(post.photo);
+        }
         feedPosts.push({
           username: currentUser.username,
+          userPhoto: currentUserPhotoBase64,
           habitName: habit.name,
           habitIcon: habit.icon,
           postDate: post.date,
-          postPhoto: post.photo,
+          postPhoto: postPhotoBase64,
           likes: post.likes,
           dislikes: post.dislikes,
           userLike: post.likes.some(id => id.toString() === userId.toString()),
