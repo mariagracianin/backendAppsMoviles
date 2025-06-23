@@ -228,6 +228,15 @@ const editUser = async (req, res) => {
     const userObj = updatedUser.toObject();
     delete userObj.password;
 
+    // Adjuntar imagen en base64 si existe
+    if (userObj.photo) {
+      try {
+        userObj.photoBase64 = await getImageAsBase64(userObj.photo);
+      } catch (err) {
+        console.warn(`No se pudo convertir la imagen a base64 para el usuario ${userObj.username}:`, err.message);
+      }
+    }
+
     res.status(200).json(userObj);
 
   } catch (error) {

@@ -2,6 +2,8 @@ const User = require('../models/User');
 const Group = require('../models/Group');
 const mongoose = require('mongoose');
 const { getHabitsInGroupFromUserInternal } = require('./userController.js');
+const getImageAsBase64 = require('../utils/getImageFromS3base64');
+
 
 // Verifica si un usuario pertenece a un grupo
 const userBelongsToGroup = async (userId, groupId) => {
@@ -78,14 +80,29 @@ const getUsersFromGroup = async (req, res) => {
     const isValid = await isValidGroupId(groupId);
     if (!isValid) throw new Error('El id del grupo no es válido o no existe');
 
-    // Solo traemos los campos necesarios: username, _id y photo
+    // Traer solo campos necesarios
     const users = await User.find({ id_groups: groupId }).select('username photo');
 
-    res.json(users);
+    // Agregar base64 si tienen foto
+    const usersWithBase64 = await Promise.all(
+      users.map(async (user) => {
+        const userObj = user.toObject();
+
+        if (userObj.photo) {
+          userObj.photoBase64 = await getImageAsBase64(userObj.photo);
+        }
+
+        return userObj;
+      })
+    );
+
+    res.json(usersWithBase64);
   } catch (error) {
+    console.error('Error en getUsersFromGroup:', error);
     res.status(400).json({ error: error.message });
   }
 };
+
 
 
 const getUsersFromGroupInternal = async (groupId) => {
@@ -108,9 +125,20 @@ const getHabitsFromGroup = async (req, res) => {
 
     const result = await Promise.all(users.map(async (user) => {
       const habits = await getHabitsInGroupFromUserInternal(user._id, groupId);
+
+      let photoBase64 = null;
+      if (user.photo) {
+        try {
+          photoBase64 = await getImageAsBase64(user.photo);
+        } catch (err) {
+          console.warn(`No se pudo convertir la imagen para el usuario ${user.username}:`, err.message);
+        }
+      }
+
       return {
         username: user.username,
         photo: user.photo,
+        photoInBase64: photoBase64,
         habits: habits.map(h => ({
           name: h.name,
           icon: h.icon,
@@ -139,7 +167,8 @@ const getGroupRanking = async (req, res) => {
 
     const users = await User.find({ id_groups: groupId });
 
-    const scores = users.map(user => {
+
+    const scores = await Promise.all(users.map(async (user) => {
       const groupHabits = user.habits.filter(habit =>
         habit.id_groups && habit.id_groups.includes(groupId)
       );
@@ -149,12 +178,22 @@ const getGroupRanking = async (req, res) => {
       const totalScore = groupHabits.reduce((sum, habit) => sum + habit.score, 0);
       const averageScore = totalScore / groupHabits.length;
 
+      let photoBase64 = null;
+      if (user.photo) {
+        try {
+          photoBase64 = await getImageAsBase64(user.photo);
+        } catch (err) {
+          console.warn(`No se pudo convertir la imagen de ${user.username}:`, err.message);
+        }
+      }
+
       return {
         username: user.username,
         photo: user.photo,
+        photoInBase64: photoBase64, 
         score: averageScore
       };
-    });
+    }));
 
     const sortedScores = scores.filter(Boolean).sort((a, b) => b.score - a.score);
     res.status(200).json(sortedScores);
