@@ -4,7 +4,9 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const uploadImageToS3 = require('../utils/uploadImageToS3');
-const { getImageFromS3 } = require('../utils/s3Utils');
+const {getImageFromS3} = require('../utils/getImageFromS3');
+const deleteFromS3 = require('../utils/deleteImageFromS3');
+const getImageAsBase64 = require('../utils/getImageFromS3base64');
 
 //Login usuario
 const loginUser = async (req, res) => {
@@ -116,6 +118,11 @@ const getUser = async (req, res) => {
     const userObj = user.toObject(); // convierte el documento Mongoose a objeto plano
     delete userObj.password; // elimina el campo
 
+    // si tiene imagen, la agrego en base64
+    if (userObj.photo) {
+      userObj.photoBase64 = await getImageAsBase64(userObj.photo);
+    }
+
     res.json(userObj);
   } catch (error) {
     console.error('Error al obtener usuario:', error);
@@ -123,13 +130,13 @@ const getUser = async (req, res) => {
   }
 };
 
-const getUserPhoto = async (req, res) => {
+const getPhoto = async (req, res) => {
   try {
-    const user = await User.findById(req.userId);
-    if (!user || !user.photo) return res.status(404).json({ error: 'Foto no encontrada' });
+    const photo = req.params.key;  
+    if (!photo) return res.status(400).json({ error: 'Falta la foto' });
 
-    const stream = await getImageFromS3(user.photo);
-    res.setHeader('Content-Type', 'image/jpeg'); // o dinámico si querés
+    const stream = await getImageFromS3(`imagenes/${photo}`);
+    res.setHeader('Content-Type', 'image/jpeg');
     stream.pipe(res);
   } catch (err) {
     console.error('Error al obtener imagen:', err);
@@ -196,8 +203,17 @@ const editUser = async (req, res) => {
       return res.status(400).json({ error: 'El _id es obligatorio para editar el usuario' });
     }
 
+    const user = await User.findById(_id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
     // Si viene una nueva imagen, la subimos a S3 y actualizamos el campo photo
     if (req.file) {
+      const oldPhoto = user.photo;
+      if (oldPhoto) {
+        await deleteFromS3(oldPhoto);
+      }
       const imageKey = await uploadImageToS3(req.file);
       updates.photo = imageKey; // solo el "path" interno de S3
     }
@@ -211,6 +227,15 @@ const editUser = async (req, res) => {
     // Ocultar password
     const userObj = updatedUser.toObject();
     delete userObj.password;
+
+    // Adjuntar imagen en base64 si existe
+    if (userObj.photo) {
+      try {
+        userObj.photoBase64 = await getImageAsBase64(userObj.photo);
+      } catch (err) {
+        console.warn(`No se pudo convertir la imagen a base64 para el usuario ${userObj.username}:`, err.message);
+      }
+    }
 
     res.status(200).json(userObj);
 
@@ -309,12 +334,12 @@ const editHabitUser = async (userId, habitName, updates) => {
 const loadHabitUser = async (req, res) => {
   try {
     const userId = req.userId;
-    const { habitName, post_photo } = req.body;
+    const { habitName } = req.body;
+    const post_photo = req.file;
 
     if (!userId || !habitName || !post_photo) {
       return res.status(400).json({ error: 'Faltan datos requeridos: userId, habitName o post_photo' });
     }
-
 
     const now = new Date();
     const dayIndex = (now.getDay() + 6) % 7;
@@ -330,10 +355,13 @@ const loadHabitUser = async (req, res) => {
       return res.status(404).json({ error: 'Hábito no encontrado en el usuario.'});
     }
 
+    // Subir imagen a S3
+    const imageKey = await uploadImageToS3(post_photo); //nos devuelve el path interno
+
     // Crear nuevo post
     const newPost = {
       date: now,
-      photo: post_photo,
+      photo: imageKey,
       likes: [],
       dislikes: []
     };
@@ -562,14 +590,24 @@ const getFeedPosts = async (req, res) => {
       // Recolectar todos los posts individualmente
       for (const habit of uniqueHabits) {
         for (const post of habit.posts) {
+          // Convertir imágenes a base64 si existen
+          let userPhotoBase64 = null;
+          if (otherUser.photo) {
+            userPhotoBase64 = await getImageAsBase64(otherUser.photo);
+          }
+          let postPhotoBase64 = null;
+          if (post.photo) {
+            postPhotoBase64 = await getImageAsBase64(post.photo);
+          }
+
           feedPosts.push({
             id: otherUser._id,
             username: otherUser.username,
-            userPhoto: otherUser.photo,
+            userPhoto: userPhotoBase64,
             habitName: habit.name,
             habitIcon: habit.icon,
             postDate: post.date,
-            postPhoto: post.photo,
+            postPhoto: postPhotoBase64,
             likes: post.likes,
             dislikes: post.dislikes,
             userLike: post.likes.some(id => id.toString() === userId.toString()),
@@ -583,15 +621,25 @@ const getFeedPosts = async (req, res) => {
     const currentUser = await User.findById(userId);
     const ownHabits = await getUserHabitsInternal(userId);
 
+    let currentUserPhotoBase64 = null;
+    if (currentUser.photo) {
+      currentUserPhotoBase64 = await getImageAsBase64(currentUser.photo);
+    }
+
     for (const habit of ownHabits) {
       for (const post of habit.posts) {
+        let postPhotoBase64 = null;
+        if (post.photo) {
+          postPhotoBase64 = await getImageAsBase64(post.photo);
+        }
         feedPosts.push({
           id: currentUser._id,
           username: currentUser.username,
+          userPhoto: currentUserPhotoBase64,
           habitName: habit.name,
           habitIcon: habit.icon,
           postDate: post.date,
-          postPhoto: post.photo,
+          postPhoto: postPhotoBase64,
           likes: post.likes,
           dislikes: post.dislikes,
           userLike: post.likes.some(id => id.toString() === userId.toString()),
@@ -635,6 +683,15 @@ const deletePost = async (req, res) => {
     const postIndex = habit.posts.findIndex(p => new Date(p.date).getTime() === parsedDate.getTime());
     if (postIndex === -1) return res.status(404).json({ error: 'Post no encontrado con esa fecha' });
 
+    // Obtener key de la imagen para eliminarla de S3
+    const photoKey = habit.posts[postIndex].photo;
+
+    try {
+      await deleteFromS3(photoKey);
+    } catch (err) {
+      console.error(`Error al borrar imagen S3 (${photoKey}):`, err.message);
+    }
+    
     // Borrar el post y su fecha
     habit.posts.splice(postIndex, 1);
     habit.post_dates = habit.post_dates.filter(d => new Date(d).getTime() !== parsedDate.getTime());
@@ -917,6 +974,6 @@ module.exports = {
   acceptPendingGroup,
   loginUser,
   getUserScore,
-  getUserPhoto,
-  deleteFriendFromGroup
+  deleteFriendFromGroup,
+  getPhoto
 };
