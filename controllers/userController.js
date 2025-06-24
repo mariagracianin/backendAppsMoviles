@@ -368,6 +368,11 @@ const addGroupToHabit = async (req, res) => {
     const userId = req.userId;
     const { habitName, newGroupId } = req.body;
 
+    const user  = await User.findById(req.userId);
+    if (!user .id_groups.includes(newGroupId)) {
+      return res.status(403).json({ error: 'No tenés permiso para asociar un habito a este grupo' });
+    }
+
     if (!userId || !habitName || !newGroupId) {
       return res.status(400).json({ error: 'Faltan datos requeridos: userId, habitName o newGroupId' });
     }
@@ -581,6 +586,7 @@ const getFeedPosts = async (req, res) => {
     for (const habit of ownHabits) {
       for (const post of habit.posts) {
         feedPosts.push({
+          id: currentUser._id,
           username: currentUser.username,
           habitName: habit.name,
           habitIcon: habit.icon,
@@ -744,7 +750,11 @@ const addLikes = async (req, res) => {
 const addPendingGroup = async (req, res) => {
   try {
     const { friendEmail, groupId } = req.body;
-    console.log(friendEmail);
+    
+    const inviter = await User.findById(req.userId);
+    if (!inviter.id_groups.includes(groupId)) {
+      return res.status(403).json({ error: 'No tenés permiso para invitar a este grupo' });
+    }
 
     if (!friendEmail || !groupId) {
       return res.status(400).json({ error: 'Faltan datos requeridos' });
@@ -849,6 +859,11 @@ const getUserScore = async (req, res) => {
 const deleteFriendFromGroup = async (req, res) => {
   try {
     const { friendEmail, groupId } = req.body;
+
+    const requester  = await User.findById(req.userId);
+    if (!requester .id_groups.includes(groupId)) {
+      return res.status(403).json({ error: 'No tenés permiso para eliminar gente de este grupo' });
+    }
 
     if (!friendEmail || !groupId) {
       return res.status(400).json({ error: 'Faltan datos requeridos' });
