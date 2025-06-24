@@ -50,11 +50,24 @@ const createUser = async (req, res) => {
 
     const saved = await newUser.save();
 
+    // Crear el token JWT
+    const token = jwt.sign(
+      { userId: saved._id },
+      process.env.JWT_SECRET || 'roxi_joaqui_clave_secreta', // Usar variable de entorno idealmente
+      { expiresIn: '2h' }
+    );
+
     // Convertir a objeto plano y eliminar la contraseña
     const userToReturn = saved.toObject();
     delete userToReturn.password;
 
-    res.status(201).json({ id: saved._id, user: userToReturn });
+    // Enviar respuesta como en login
+    res.status(201).json({
+      message: 'Usuario creado y login exitoso',
+      token,
+      userId: saved._id,
+      user: userToReturn
+    });
   } catch (err) {
     if (err.code === 11000) {
       const duplicatedField = Object.keys(err.keyValue)[0];
