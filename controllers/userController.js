@@ -407,6 +407,20 @@ const loadHabitUser = async (req, res) => {
       return res.status(404).json({ error: 'Hábito no encontrado en el usuario.'});
     }
 
+    // Chequeo si ya posteó hoy
+    const yaPosteoHoy = habit.post_dates.some(date => {
+      const postDate = new Date(date);
+      return (
+        postDate.getFullYear() === now.getFullYear() &&
+        postDate.getMonth() === now.getMonth() &&
+        postDate.getDate() === now.getDate()
+      );
+    });
+
+    if (yaPosteoHoy) {
+      return res.status(400).json({ error: 'Ya se subió un post para este hábito hoy.' });
+    }
+    
     // Subir imagen a S3
     const imageKey = await uploadImageToS3(post_photo); //nos devuelve el path interno
 
