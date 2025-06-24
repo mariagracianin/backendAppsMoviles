@@ -6,7 +6,8 @@ const {
   getUsersFromGroup,
   getHabitsFromGroup, 
   getGroupRanking,
-  getGroup
+  getGroup,
+  deleteGroup
 } = require('../controllers/groupController');
 
 const authMiddleware = require('../middlewares/auth');
@@ -14,6 +15,9 @@ const authMiddleware = require('../middlewares/auth');
 // Rutas protegidas
 router.post('/create', authMiddleware, createGroup);
 router.post('/edit', authMiddleware, editGroup);
+
+router.delete('/deleteGroup', authMiddleware, deleteGroup);
+
 router.get('/:groupId', authMiddleware, getGroup);
 router.get('/:groupId/getUsers', authMiddleware, getUsersFromGroup);
 router.get('/:groupId/getHabits', authMiddleware, getHabitsFromGroup);

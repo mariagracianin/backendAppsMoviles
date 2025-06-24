@@ -305,6 +305,45 @@ const createHabitUser = async (req, res) => {
   }
 };
 
+// Funcion para borrar habitos con un nombre en especifico
+const deleteHabit = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { habitName } = req.body;
+
+    if (!userId || !habitName) {
+      return res.status(400).json({ error: 'Faltan datos requeridos: userId o habitName' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'El userId no es válido' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const originalLength = user.habits.length;
+
+    // Filtrar los hábitos manteniendo los que no coinciden con el nombre
+    user.habits = user.habits.filter(h => h.name !== habitName);
+
+    // Verificar si realmente se borró algo
+    if (user.habits.length === originalLength) {
+      return res.status(404).json({ error: `No se encontró un hábito con el nombre "${habitName}"` });
+    }
+
+    await user.save();
+
+    res.status(200).json({ message: `Hábito "${habitName}" eliminado correctamente` });
+  } catch (error) {
+    console.error('Error al eliminar hábito:', error);
+    res.status(500).json({ error: 'Error en la base de datos' });
+  }
+};
+
+
 //funcion para editar un habito, capaz no tiene mucho sentido usarla
 //funciona para poder agregar habito a otro grupo. la usa la funcion add group to habit
 const editHabitUser = async (userId, habitName, updates) => {
@@ -988,5 +1027,6 @@ module.exports = {
   loginUser,
   getUserScore,
   deleteFriendFromGroup,
-  getPhoto
+  getPhoto,
+  deleteHabit
 };

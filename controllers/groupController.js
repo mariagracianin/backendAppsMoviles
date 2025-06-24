@@ -37,6 +37,48 @@ const createGroup = async (req, res) => {
   }
 };
 
+const deleteGroup = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { groupId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({ error: 'ID de grupo no válido' });
+    }
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ error: 'Grupo no encontrado' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user || !user.id_groups.includes(groupId)) {
+      return res.status(403).json({ error: 'No estás autorizado para eliminar este grupo' });
+    }
+
+    // 1. Eliminar el grupo
+    await Group.findByIdAndDelete(groupId);
+
+    // 2. Quitar el grupo de id_groups y id_pending_groups de todos los usuarios
+    await User.updateMany(
+      {},
+      {
+        $pull: {
+          id_groups: groupId,
+          id_pending_groups: groupId,
+          'habits.$[].id_groups': groupId
+        }
+      }
+    );
+
+    res.status(200).json({ message: 'Grupo eliminado y referencias limpiadas correctamente' });
+  } catch (err) {
+    console.error('Error al eliminar grupo:', err);
+    res.status(500).json({ error: 'Error al eliminar grupo y limpiar referencias' });
+  }
+};
+
+
 // Editar grupo solo si el usuario pertenece
 const editGroup = async (req, res) => {
   try {
@@ -245,5 +287,6 @@ module.exports = {
   getUsersFromGroup,
   getHabitsFromGroup,
   getGroupRanking,
-  getGroup
+  getGroup,
+  deleteGroup
 };
