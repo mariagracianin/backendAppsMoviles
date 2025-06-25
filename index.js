@@ -22,7 +22,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.error('Error al conectar MongoDB', err));
 
 // Tarea programada todos los días a las 00:00
-cron.schedule('17 21 * * *', async () => { //esto cambiarlo!!!!!!!
+cron.schedule('34 21 * * *', async () => { //esto cambiarlo!!!!!!!
   await ejecutarTareaDiaria();
 });
 
