@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt');
 const uploadImageToS3 = require('../utils/uploadImageToS3');
 const {getImageFromS3} = require('../utils/getImageFromS3');
 const deleteFromS3 = require('../utils/deleteImageFromS3');
-const getImageAsBase64 = require('../utils/getImageFromS3base64.js');
+const getImageAsBase64 = require('../utils/getImageFromS3base64');
 
 //Login usuario
 const loginUser = async (req, res) => {

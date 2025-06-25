@@ -2,7 +2,7 @@ const User = require('../models/User');
 const Group = require('../models/Group');
 const mongoose = require('mongoose');
 const { getHabitsInGroupFromUserInternal } = require('./userController.js');
-const getImageAsBase64 = require('../utils/getImageFromS3base64.js/index.js');
+const getImageAsBase64 = require('../utils/getImageFromS3base64/index.js');
 
 
 // Verifica si un usuario pertenece a un grupo
