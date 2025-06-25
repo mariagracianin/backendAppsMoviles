@@ -47,7 +47,7 @@ async function ejecutarTareaDiaria() {
         habit.score = Math.round(habitScore);
 
         // Resetear weekly_counter solo si es lunes (1)
-        if (now.getDay() === 5) {
+        if (now.getDay() === 3) {
           habit.weekly_counter = [0, 0, 0, 0, 0, 0, 0];
         }
 
